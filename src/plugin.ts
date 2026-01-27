@@ -1,29 +1,29 @@
-import path from "node:path";
-import type { Plugin, UserConfig, ViteDevServer } from "vite";
+import path from 'node:path';
+import type { Plugin, UserConfig, ViteDevServer } from 'vite';
 
 import {
   makeSassTokenInjection,
   mergeScssAdditionalData,
-} from "./sassTokenInjection";
-import { makeStyleDictionaryConfig, registerStyleDictionaryThings } from "./sd";
+} from './sassTokenInjection';
+import { makeStyleDictionaryConfig, registerStyleDictionaryThings } from './sd';
 
 export type StyleDictionaryThemeShiftPluginOptions = {
   tokensGlob?: string; // default: "tokens/**/*.json" (watch uses tokensDir)
   tokensDir?: string; // default: "tokens"
   watch?: boolean; // default: true
   injectSassTokenFn?: boolean; // default: true
-  platforms?: Array<"css" | "scss" | "meta">; // default: all three
-  reloadStrategy?: "hmr" | "full"; // default: "hmr"
+  platforms?: Array<'css' | 'scss' | 'meta'>; // default: all three
+  reloadStrategy?: 'hmr' | 'full'; // default: "hmr"
 };
 
 export function styleDictionaryThemeShiftPlugin(
-  options: StyleDictionaryThemeShiftPluginOptions = {},
+  options: StyleDictionaryThemeShiftPluginOptions = {}
 ): Plugin {
-  const tokensDir = options.tokensDir ?? "tokens";
+  const tokensDir = options.tokensDir ?? 'tokens';
   const watch = options.watch ?? true;
   const injectSassTokenFn = options.injectSassTokenFn ?? true;
-  const platforms = options.platforms ?? ["css", "scss", "meta"];
-  const reloadStrategy = options.reloadStrategy ?? "hmr";
+  const platforms = options.platforms ?? ['css', 'scss', 'meta'];
+  const reloadStrategy = options.reloadStrategy ?? 'hmr';
 
   let root = process.cwd();
   let server: ViteDevServer | null = null;
@@ -36,7 +36,7 @@ export function styleDictionaryThemeShiftPlugin(
     if (building) return building;
 
     building = (async () => {
-      const imported = await import("style-dictionary");
+      const imported = await import('style-dictionary');
       const StyleDictionary = (imported as any).default ?? imported;
 
       // register transforms/formats (your code)
@@ -46,7 +46,7 @@ export function styleDictionaryThemeShiftPlugin(
       const config = makeStyleDictionaryConfig();
       setCssOutputFile(config);
 
-      const sd = await (typeof StyleDictionary.extend === "function"
+      const sd = await (typeof StyleDictionary.extend === 'function'
         ? StyleDictionary.extend(config)
         : new StyleDictionary(config));
 
@@ -69,11 +69,13 @@ export function styleDictionaryThemeShiftPlugin(
   }
 
   function fullReload() {
-    server?.ws.send({ type: "full-reload" });
+    server?.ws.send({ type: 'full-reload' });
   }
 
-  function setCssOutputFile(config: ReturnType<typeof makeStyleDictionaryConfig>) {
-    if (!platforms.includes("css")) {
+  function setCssOutputFile(
+    config: ReturnType<typeof makeStyleDictionaryConfig>
+  ) {
+    if (!platforms.includes('css')) {
       cssOutputFile = null;
       return;
     }
@@ -83,22 +85,26 @@ export function styleDictionaryThemeShiftPlugin(
       cssOutputFile = null;
       return;
     }
-    cssOutputFile = path.resolve(root, cssPlatform.buildPath, cssFile.destination);
+    cssOutputFile = path.resolve(
+      root,
+      cssPlatform.buildPath,
+      cssFile.destination
+    );
   }
 
   async function tryCssHmrUpdate(): Promise<boolean> {
     if (!server || !cssOutputFile) return false;
     const rel = path.relative(root, cssOutputFile);
-    if (rel.startsWith("..")) return false;
-    const url = "/" + rel.split(path.sep).join("/");
+    if (rel.startsWith('..')) return false;
+    const url = '/' + rel.split(path.sep).join('/');
     const mod = await server.moduleGraph.getModuleByUrl(url);
     if (!mod) return false;
     server.moduleGraph.invalidateModule(mod);
     server.ws.send({
-      type: "update",
+      type: 'update',
       updates: [
         {
-          type: "css-update",
+          type: 'css-update',
           path: url,
           acceptedPath: url,
           timestamp: Date.now(),
@@ -109,7 +115,7 @@ export function styleDictionaryThemeShiftPlugin(
   }
 
   async function notifyTokenOutputsUpdated() {
-    if (reloadStrategy === "full") {
+    if (reloadStrategy === 'full') {
       fullReload();
       return;
     }
@@ -118,12 +124,12 @@ export function styleDictionaryThemeShiftPlugin(
 
   function isTokenJson(file: string) {
     const rel = path.relative(root, file);
-    return rel.startsWith(tokensDir + path.sep) && rel.endsWith(".json");
+    return rel.startsWith(tokensDir + path.sep) && rel.endsWith('.json');
   }
 
   return {
-    name: "vite-plugin-style-dictionary-native",
-    enforce: "pre",
+    name: 'vite-plugin-style-dictionary-native',
+    enforce: 'pre',
 
     config(userConfig): UserConfig {
       if (!injectSassTokenFn) return {};
@@ -160,7 +166,7 @@ export function styleDictionaryThemeShiftPlugin(
         await buildOnce();
       } catch (err) {
         server.config.logger.error(
-          `[style-dictionary] initial build failed:\n${String(err)}`,
+          `[style-dictionary] initial build failed:\n${String(err)}`
         );
       }
 
@@ -175,14 +181,14 @@ export function styleDictionaryThemeShiftPlugin(
           await notifyTokenOutputsUpdated();
         } catch (err) {
           server?.config.logger.error(
-            `[style-dictionary] build failed:\n${String(err)}`,
+            `[style-dictionary] build failed:\n${String(err)}`
           );
         }
       };
 
-      server.watcher.on("add", onChange);
-      server.watcher.on("change", onChange);
-      server.watcher.on("unlink", onChange);
+      server.watcher.on('add', onChange);
+      server.watcher.on('change', onChange);
+      server.watcher.on('unlink', onChange);
     },
   };
 }

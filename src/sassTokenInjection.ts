@@ -16,18 +16,18 @@ export function makeSassTokenInjection(): string {
 @function token($path) {
   @return var(#{_sd_to_css_var_name($path)});
 }
-`.trim() + "\n"
+`.trim() + '\n'
   );
 }
 
 export function mergeScssAdditionalData(
   existing: unknown,
-  injection: string,
+  injection: string
 ): string | ((source: string, filename: string) => string) {
-  if (typeof existing === "function") {
+  if (typeof existing === 'function') {
     return (source: string, filename: string) =>
       injection + existing(source, filename);
   }
-  if (typeof existing === "string") return injection + existing;
+  if (typeof existing === 'string') return injection + existing;
   return injection;
 }

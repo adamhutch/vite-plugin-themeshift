@@ -38,9 +38,9 @@ npm install --save-dev vite-plugin-themeshift style-dictionary sass
 
 ```ts
 // vite.config.ts
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import { styleDictionaryThemeShiftPlugin } from "vite-plugin-themeshift";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { styleDictionaryThemeShiftPlugin } from 'vite-plugin-themeshift';
 
 export default defineConfig({
   plugins: [react(), styleDictionaryThemeShiftPlugin()],
@@ -76,8 +76,8 @@ type StyleDictionaryThemeShiftPluginOptions = {
   tokensDir?: string; // default: "tokens"
   watch?: boolean; // default: true
   injectSassTokenFn?: boolean; // default: true
-  platforms?: Array<"css" | "scss" | "meta">; // default: all three
-  reloadStrategy?: "hmr" | "full"; // default: "hmr"
+  platforms?: Array<'css' | 'scss' | 'meta'>; // default: all three
+  reloadStrategy?: 'hmr' | 'full'; // default: "hmr"
 };
 ```
 
