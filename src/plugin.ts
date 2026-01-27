@@ -7,7 +7,7 @@ import {
 } from './sassTokenInjection';
 import { makeStyleDictionaryConfig, registerStyleDictionaryThings } from './sd';
 
-export type StyleDictionaryThemeShiftPluginOptions = {
+export type ThemeShiftPluginOptions = {
   tokensGlob?: string; // default: "tokens/**/*.json" (watch uses tokensDir)
   tokensDir?: string; // default: "tokens"
   watch?: boolean; // default: true
@@ -16,8 +16,8 @@ export type StyleDictionaryThemeShiftPluginOptions = {
   reloadStrategy?: 'hmr' | 'full'; // default: "hmr"
 };
 
-export function styleDictionaryThemeShiftPlugin(
-  options: StyleDictionaryThemeShiftPluginOptions = {}
+export function themeShiftPlugin(
+  options: ThemeShiftPluginOptions = {}
 ): Plugin {
   const tokensDir = options.tokensDir ?? 'tokens';
   const watch = options.watch ?? true;
