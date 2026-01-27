@@ -86,12 +86,12 @@ export function styleDictionaryThemeShiftPlugin(
     cssOutputFile = path.resolve(root, cssPlatform.buildPath, cssFile.destination);
   }
 
-  function tryCssHmrUpdate(): boolean {
+  async function tryCssHmrUpdate(): Promise<boolean> {
     if (!server || !cssOutputFile) return false;
     const rel = path.relative(root, cssOutputFile);
     if (rel.startsWith("..")) return false;
     const url = "/" + rel.split(path.sep).join("/");
-    const mod = server.moduleGraph.getModuleByUrl(url);
+    const mod = await server.moduleGraph.getModuleByUrl(url);
     if (!mod) return false;
     server.moduleGraph.invalidateModule(mod);
     server.ws.send({
@@ -108,12 +108,12 @@ export function styleDictionaryThemeShiftPlugin(
     return true;
   }
 
-  function notifyTokenOutputsUpdated() {
+  async function notifyTokenOutputsUpdated() {
     if (reloadStrategy === "full") {
       fullReload();
       return;
     }
-    if (!tryCssHmrUpdate()) fullReload();
+    if (!(await tryCssHmrUpdate())) fullReload();
   }
 
   function isTokenJson(file: string) {
@@ -172,7 +172,7 @@ export function styleDictionaryThemeShiftPlugin(
         if (!isTokenJson(file)) return;
         try {
           await buildOnce();
-          notifyTokenOutputsUpdated();
+          await notifyTokenOutputsUpdated();
         } catch (err) {
           server?.config.logger.error(
             `[style-dictionary] build failed:\n${String(err)}`,
