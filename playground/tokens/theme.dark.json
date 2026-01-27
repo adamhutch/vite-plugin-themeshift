@@ -1,0 +1,8 @@
+{
+  "theme": {
+    "dark": {
+      "text": { "base": { "value": "#ffffff" } },
+      "bg": { "base": { "value": "#111111" } }
+    }
+  }
+}
