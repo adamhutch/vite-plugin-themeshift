@@ -14,6 +14,11 @@ export type ThemeShiftOptions = {
   injectSassTokenFn?: boolean; // default: true
   platforms?: Array<'css' | 'scss' | 'meta'>; // default: all three
   reloadStrategy?: 'hmr' | 'full'; // default: "hmr"
+  log?: {
+    warnings?: 'warn' | 'error' | 'disabled';
+    verbosity?: 'default' | 'silent' | 'verbose';
+    errors?: { brokenReferences?: 'throw' | 'console' };
+  };
 };
 
 export function themeShift(options: ThemeShiftOptions = {}): Plugin {
@@ -22,6 +27,14 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
   const injectSassTokenFn = options.injectSassTokenFn ?? true;
   const platforms = options.platforms ?? ['css', 'scss', 'meta'];
   const reloadStrategy = options.reloadStrategy ?? 'hmr';
+  const log = {
+    warnings: 'disabled' as const,
+    verbosity: 'silent' as const,
+    ...options.log,
+    errors: {
+      ...options.log?.errors,
+    },
+  };
 
   let root = process.cwd();
   let server: ViteDevServer | null = null;
@@ -41,7 +54,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
       registerStyleDictionaryThings(StyleDictionary);
 
       // build using your config (relative paths resolve from cwd; set cwd to root)
-      const config = makeStyleDictionaryConfig();
+      const config = makeStyleDictionaryConfig({ log });
       setCssOutputFile(config);
 
       const sd = await (typeof StyleDictionary.extend === 'function'

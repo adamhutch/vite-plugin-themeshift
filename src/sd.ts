@@ -1,4 +1,4 @@
-import type { Config } from 'style-dictionary/types';
+import type { Config, LogConfig } from 'style-dictionary/types';
 
 export function registerStyleDictionaryThings(StyleDictionary: any) {
   // Prevent double-registration in dev (Vite can re-run plugin code)
@@ -221,8 +221,9 @@ export type TokenPath = (typeof tokenPaths)[number];
   });
 }
 
-export function makeStyleDictionaryConfig(): Config {
+export function makeStyleDictionaryConfig(options: { log?: LogConfig } = {}): Config {
   return {
+    log: options.log,
     source: ['tokens/**/*.json'],
 
     platforms: {

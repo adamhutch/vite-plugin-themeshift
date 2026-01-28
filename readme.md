@@ -17,20 +17,12 @@ logic into a Vite plugin so token changes behave like any other frontend change.
 
 ## Features
 
-- Watches `tokens/**/*.json` and rebuilds on change
-- Runs Style Dictionary programmatically (no extra CLI step)
-- Outputs CSS variables for multi-mode theming
-- Optional Sass output for static tokens
-- Injects a global Sass `token()` helper
-- Vite HMR for `tokens.css` (fallback to full reload)
-
----
-
-## Installation
-
-```bash
-npm install --save-dev vite-plugin-themeshift style-dictionary sass
-```
+- 👀 Watches `tokens/**/*.json` and rebuilds on change
+- ⚙️ Runs Style Dictionary programmatically (no extra CLI step)
+- 🎨 Outputs CSS variables for multi-mode theming
+- 🧵 Optional Sass output for static tokens
+- ✨ Injects a global Sass `token()` helper
+- 🔥 Vite HMR for `tokens.css` (fallback to full reload)
 
 ---
 
@@ -56,6 +48,102 @@ Style Dictionary JSON files and outputs:
 
 ---
 
+## Getting started (new project)
+
+If you're wiring this up for the first time, this is a good baseline setup:
+
+1. Install packages
+
+```bash
+npm install --save-dev vite-plugin-themeshift style-dictionary sass
+```
+
+2. Add the plugin to `vite.config.ts`
+
+```ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { themeShift } from 'vite-plugin-themeshift';
+
+export default defineConfig({
+  plugins: [react(), themeShift()],
+});
+```
+
+3. Create your first tokens file
+
+Create `tokens/theme.json`:
+
+```json
+{
+  "theme": {
+    "text": {
+      "base": { "$value": "#0f172a" }
+    }
+  }
+}
+```
+
+4. Import the generated CSS
+
+Import the CSS file that ThemeShift generates. For example in `src/main.tsx`:
+
+```ts
+import './css/tokens.css';
+```
+
+### Dark/light mode setup
+
+To enable theme modes, split your tokens into separate files:
+
+- `tokens/theme.light.json`
+- `tokens/theme.dark.json`
+
+Example:
+
+`tokens/theme.light.json`:
+
+```json
+{
+  "theme": {
+    "text": {
+      "base": { "$value": "#0f172a" }
+    },
+    "surface": {
+      "base": { "$value": "#ecf0f1" }
+    }
+  }
+}
+```
+
+`tokens/theme.dark.json`:
+
+```json
+{
+  "theme": {
+    "text": {
+      "base": { "$value": "#e2e8f0" }
+    },
+    "surface": {
+      "base": { "$value": "#2c3e50" }
+    }
+  }
+}
+```
+
+Then set the data-theme attribute on your document root (usually inside of `index.html`):
+
+```html
+<html lang="en" data-theme="dark">
+  ...
+</html>
+```
+
+You can toggle `data-theme` between `light` and `dark` to switch modes at runtime. To easily toggle this on the fly
+you can use a hook like [useDarkMode](https://usehooks-ts.com/react-hook/use-dark-mode) from [useHooks](https://usehooks-ts.com/) (or you can write your own).
+
+---
+
 ## Playground
 
 This repo includes a playground project under `playground/` to try things locally.
@@ -78,6 +166,11 @@ type themeShiftOptions = {
   injectSassTokenFn?: boolean; // default: true
   platforms?: Array<'css' | 'scss' | 'meta'>; // default: all three
   reloadStrategy?: 'hmr' | 'full'; // default: "hmr"
+  log?: {
+    warnings?: 'warn' | 'error' | 'disabled';
+    verbosity?: 'default' | 'silent' | 'verbose';
+    errors?: { brokenReferences?: 'throw' | 'console' };
+  };
 };
 ```
 
@@ -86,6 +179,28 @@ type themeShiftOptions = {
 When tokens change, ThemeShift will try to HMR-reload the generated `tokens.css`. If it
 can’t find the CSS module in Vite’s module graph, it will fallback to a full reload.
 Set `reloadStrategy: "full"` to always reload.
+
+### log
+
+By default, ThemeShift silences Style Dictionary output (`verbosity: "silent"` and
+`warnings: "disabled"`). Override to opt back into logs.
+
+Forwarded to Style Dictionary's logging config. Use this to reduce or silence output.
+For example, to hide warnings:
+
+```ts
+themeShift({
+  log: { warnings: 'disabled' },
+});
+```
+
+To fully silence Style Dictionary output:
+
+```ts
+themeShift({
+  log: { verbosity: 'silent', warnings: 'disabled' },
+});
+```
 
 ---
 
