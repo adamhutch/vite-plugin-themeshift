@@ -40,10 +40,10 @@ npm install --save-dev vite-plugin-themeshift style-dictionary sass
 // vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { themeShiftPlugin } from 'vite-plugin-themeshift';
+import { themeShift } from 'vite-plugin-themeshift';
 
 export default defineConfig({
-  plugins: [react(), themeShiftPlugin()],
+  plugins: [react(), themeShift()],
 });
 ```
 
@@ -71,7 +71,7 @@ npm run playground
 ## Plugin options
 
 ```ts
-type themeShiftPluginOptions = {
+type themeShiftOptions = {
   tokensGlob?: string; // default: "tokens/**/*.json" (watch uses tokensDir)
   tokensDir?: string; // default: "tokens"
   watch?: boolean; // default: true

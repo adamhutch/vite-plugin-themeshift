@@ -1,11 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { themeShiftPlugin } from '../src';
+import { themeShift } from '../src';
 
 export default defineConfig({
   plugins: [
     react(),
-    themeShiftPlugin({
+    themeShift({
       tokensDir: 'tokens',
       platforms: ['css', 'scss', 'meta'],
       injectSassTokenFn: true,

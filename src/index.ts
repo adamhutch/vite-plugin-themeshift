@@ -1,2 +1,2 @@
-export { themeShiftPlugin } from './plugin';
-export type { ThemeShiftPluginOptions } from './plugin';
+export { themeShift } from './plugin';
+export type { ThemeShiftOptions } from './plugin';

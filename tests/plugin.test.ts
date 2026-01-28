@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-import { themeShiftPlugin } from '../src/plugin';
+import { themeShift } from '../src/plugin';
 import { makeSassTokenInjection } from '../src/sassTokenInjection';
 
 const sdMocks = vi.hoisted(() => {
@@ -34,7 +34,7 @@ function makeServerMocks() {
   };
 }
 
-describe('themeShiftPlugin', () => {
+describe('themeShift', () => {
   beforeEach(() => {
     sdMocks.buildPlatform.mockClear();
     sdMocks.extend.mockClear();
@@ -43,7 +43,7 @@ describe('themeShiftPlugin', () => {
   });
 
   it('injects Sass helpers into additionalData by default', () => {
-    const plugin = themeShiftPlugin();
+    const plugin = themeShift();
     const injection = makeSassTokenInjection();
     const config = plugin.config?.({
       css: { preprocessorOptions: { scss: { additionalData: 'body {}' } } },
@@ -57,13 +57,13 @@ describe('themeShiftPlugin', () => {
   });
 
   it('skips Sass injection when injectSassTokenFn is false', () => {
-    const plugin = themeShiftPlugin({ injectSassTokenFn: false });
+    const plugin = themeShift({ injectSassTokenFn: false });
     const config = plugin.config?.({});
     expect(config).toEqual({});
   });
 
   it('builds all default platforms on buildStart', async () => {
-    const plugin = themeShiftPlugin();
+    const plugin = themeShift();
     await plugin.buildStart?.();
 
     const calls = sdMocks.buildPlatform.mock.calls.map((call) => call[0]);
@@ -71,7 +71,7 @@ describe('themeShiftPlugin', () => {
   });
 
   it('watches token changes and triggers HMR updates', async () => {
-    const plugin = themeShiftPlugin({ tokensDir: 'tokens', watch: true });
+    const plugin = themeShift({ tokensDir: 'tokens', watch: true });
     const server = makeServerMocks();
 
     await plugin.configureServer?.(server as any);
