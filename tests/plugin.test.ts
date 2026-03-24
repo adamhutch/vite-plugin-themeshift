@@ -48,31 +48,54 @@ describe('themeShift', () => {
 
   it('injects Sass helpers into additionalData by default', () => {
     const plugin = themeShift();
-    const injection = makeSassTokenInjection();
-    const config = plugin.config?.({
-      css: { preprocessorOptions: { scss: { additionalData: 'body {}' } } },
-    });
+    const config = plugin.config?.({});
 
     const additional =
       config?.css?.preprocessorOptions?.scss?.additionalData ?? '';
 
-    expect(typeof additional).toBe('string');
-    expect(additional).toContain('@use "sass:string" as _themeShiftString;');
-    expect(additional).toContain('@function token($path)');
-    expect(additional).toContain('body {}');
+    expect(typeof additional).toBe('function');
+    expect(
+      additional(
+        `@use '@/sass/tokens.runtime' as *;\n.button { color: token('theme.surface.base'); }\n`,
+        'Button.module.scss'
+      )
+    ).toMatch(
+      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use "sass:string" as _themeShiftString;/
+    );
   });
 
-  it('keeps existing @use rules ahead of injected Sass helpers', () => {
+  it('keeps source-level @use rules ahead of injected Sass helpers', () => {
     const additional = mergeScssAdditionalData(
-      `@use '@/sass/tokens.runtime' as *;\n.button { color: red; }\n`,
+      undefined,
       makeSassTokenInjection()
     );
 
-    expect(typeof additional).toBe('string');
-    expect(additional).toMatch(
+    expect(typeof additional).toBe('function');
+    expect(
+      additional(
+        `@use '@/sass/tokens.runtime' as *;\n.button { color: red; }\n`,
+        'Button.module.scss'
+      )
+    ).toMatch(
       /^@use '@\/sass\/tokens\.runtime' as \*;\n@use "sass:string" as _themeShiftString;/
     );
-    expect(additional).toContain('.button { color: red; }');
+  });
+
+  it('keeps string additionalData and source @use rules ahead of injected helpers', () => {
+    const additional = mergeScssAdditionalData(
+      `@use '@/sass/tokens.runtime' as *;\n`,
+      makeSassTokenInjection()
+    );
+
+    expect(typeof additional).toBe('function');
+    expect(
+      additional(
+        `@use '@/sass/mixins/button';\n.button { color: red; }\n`,
+        'Button.module.scss'
+      )
+    ).toMatch(
+      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use '@\/sass\/mixins\/button';\n@use "sass:string" as _themeShiftString;/
+    );
   });
 
   it('keeps existing functional additionalData @use rules ahead of helpers', () => {
@@ -83,8 +106,13 @@ describe('themeShift', () => {
     );
 
     expect(typeof additional).toBe('function');
-    expect(additional('body {}', 'Button.module.scss')).toMatch(
-      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use "sass:string" as _themeShiftString;/
+    expect(
+      additional(
+        `@use '@/sass/mixins/button';\nbody {}\n`,
+        'Button.module.scss'
+      )
+    ).toMatch(
+      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use '@\/sass\/mixins\/button';\n@use "sass:string" as _themeShiftString;/
     );
   });
 

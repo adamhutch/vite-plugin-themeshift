@@ -57,11 +57,19 @@ function mergeScssStrings(existing: string, injection: string) {
 export function mergeScssAdditionalData(
   existing: unknown,
   injection: string
-): string | ((source: string, filename: string) => string) {
-  if (typeof existing === 'function') {
-    return (source: string, filename: string) =>
-      mergeScssStrings(existing(source, filename), injection);
-  }
-  if (typeof existing === 'string') return mergeScssStrings(existing, injection);
-  return injection;
+) {
+  const applyExisting = (source: string, filename: string) => {
+    if (typeof existing === 'function') {
+      return existing(source, filename);
+    }
+
+    if (typeof existing === 'string') {
+      return existing + source;
+    }
+
+    return source;
+  };
+
+  return (source: string, filename: string) =>
+    mergeScssStrings(applyExisting(source, filename), injection);
 }
