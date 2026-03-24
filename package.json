@@ -9,6 +9,9 @@
     "url": "git+https://github.com/adamhutch/vite-plugin-themeshift.git"
   },
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
