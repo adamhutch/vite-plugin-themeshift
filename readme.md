@@ -106,11 +106,13 @@ Example:
 ```json
 {
   "theme": {
-    "text": {
-      "base": { "$value": "#0f172a" }
-    },
-    "surface": {
-      "base": { "$value": "#ecf0f1" }
+    "light": {
+      "text": {
+        "base": { "$value": "#0f172a" }
+      },
+      "surface": {
+        "base": { "$value": "#ecf0f1" }
+      }
     }
   }
 }
@@ -121,11 +123,13 @@ Example:
 ```json
 {
   "theme": {
-    "text": {
-      "base": { "$value": "#e2e8f0" }
-    },
-    "surface": {
-      "base": { "$value": "#2c3e50" }
+    "dark": {
+      "text": {
+        "base": { "$value": "#e2e8f0" }
+      },
+      "surface": {
+        "base": { "$value": "#2c3e50" }
+      }
     }
   }
 }
