@@ -22,6 +22,7 @@ export type ThemeShiftOptions = {
 };
 
 export function themeShift(options: ThemeShiftOptions = {}): Plugin {
+  const TRANSIENT_BUILD_RETRY_DELAYS_MS = [50, 100, 200];
   const tokensDir = options.tokensDir ?? 'tokens';
   const watch = options.watch ?? true;
   const injectSassTokenFn = options.injectSassTokenFn ?? true;
@@ -43,6 +44,30 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
   // prevent overlapping builds
   let building: Promise<void> | null = null;
 
+  function sleep(ms: number) {
+    return new Promise<void>((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  function withRootCwd<T>(run: () => Promise<T>) {
+    const prev = process.cwd();
+    process.chdir(root);
+    return run().finally(() => {
+      process.chdir(prev);
+    });
+  }
+
+  function isTransientTokenLoadError(err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+
+    return (
+      message.includes('Failed to load or parse JSON or JS Object') ||
+      message.includes('JSON5: invalid end of input') ||
+      message.includes('Unexpected end of JSON input')
+    );
+  }
+
   async function buildOnce() {
     if (building) return building;
 
@@ -57,26 +82,39 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
       const config = makeStyleDictionaryConfig({ log });
       setCssOutputFile(config);
 
-      const sd = await (typeof StyleDictionary.extend === 'function'
-        ? StyleDictionary.extend(config)
-        : new StyleDictionary(config));
+      await withRootCwd(async () => {
+        const sd = await (typeof StyleDictionary.extend === 'function'
+          ? StyleDictionary.extend(config)
+          : new StyleDictionary(config));
 
-      // Style Dictionary uses process.cwd() for relative globs/buildPath.
-      // We temporarily chdir to Vite root for correctness.
-      const prev = process.cwd();
-      process.chdir(root);
-      try {
         for (const p of platforms) {
           await sd.buildPlatform(p);
         }
-      } finally {
-        process.chdir(prev);
-      }
+      });
     })().finally(() => {
       building = null;
     });
 
     return building;
+  }
+
+  async function buildWithRetries() {
+    let attempt = 0;
+
+    while (true) {
+      try {
+        await buildOnce();
+        return;
+      } catch (err) {
+        const retryDelay = TRANSIENT_BUILD_RETRY_DELAYS_MS[attempt];
+        if (!retryDelay || !isTransientTokenLoadError(err)) {
+          throw err;
+        }
+
+        attempt += 1;
+        await sleep(retryDelay);
+      }
+    }
   }
 
   function fullReload() {
@@ -166,7 +204,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
     },
 
     async buildStart() {
-      await buildOnce();
+      await buildWithRetries();
     },
 
     async configureServer(_server) {
@@ -174,7 +212,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
 
       // initial build
       try {
-        await buildOnce();
+        await buildWithRetries();
       } catch (err) {
         server.config.logger.error(
           `[style-dictionary] initial build failed:\n${String(err)}`
@@ -188,7 +226,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
       const onChange = async (file: string) => {
         if (!isTokenJson(file)) return;
         try {
-          await buildOnce();
+          await buildWithRetries();
           await notifyTokenOutputsUpdated();
         } catch (err) {
           server?.config.logger.error(

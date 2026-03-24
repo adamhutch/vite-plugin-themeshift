@@ -36,6 +36,7 @@ function makeServerMocks() {
 
 describe('themeShift', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     sdMocks.buildPlatform.mockClear();
     sdMocks.extend.mockClear();
     sdMocks.registerTransform.mockClear();
@@ -88,5 +89,27 @@ describe('themeShift', () => {
     expect(server.ws.send).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'update' })
     );
+  });
+
+  it('retries transient token parse failures triggered by newly added files', async () => {
+    vi.useFakeTimers();
+
+    sdMocks.extend
+      .mockRejectedValueOnce(
+        new Error(
+          'Failed to load or parse JSON or JS Object:\n\nJSON5: invalid end of input at 1:1'
+        )
+      )
+      .mockReturnValue({ buildPlatform: sdMocks.buildPlatform });
+
+    const plugin = themeShift({ tokensDir: 'tokens', watch: true });
+    const server = makeServerMocks();
+
+    const configurePromise = plugin.configureServer?.(server as any);
+    await vi.runAllTimersAsync();
+    await configurePromise;
+
+    expect(sdMocks.extend).toHaveBeenCalledTimes(2);
+    expect(server.config.logger.error).not.toHaveBeenCalled();
   });
 });

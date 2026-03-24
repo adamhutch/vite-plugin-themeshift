@@ -1,4 +1,4 @@
-# vite-plugin-themeshift
+# @themeshift/vite-plugin-themeshift
 
 ThemeShift is a Vite plugin that makes using Style Dictionary easy as pie.
 It watches your design tokens, regenerates token outputs automatically, and keeps your app
@@ -32,7 +32,7 @@ logic into a Vite plugin so token changes behave like any other frontend change.
 // vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { themeShift } from 'vite-plugin-themeshift';
+import { themeShift } from '@themeshift/vite-plugin-themeshift';
 
 export default defineConfig({
   plugins: [react(), themeShift()],
@@ -55,7 +55,7 @@ If you're wiring this up for the first time, this is a good baseline setup:
 1. Install packages
 
 ```bash
-npm install --save-dev vite-plugin-themeshift style-dictionary sass
+npm install --save-dev @themeshift/vite-plugin-themeshift style-dictionary sass
 ```
 
 2. Add the plugin to `vite.config.ts`
@@ -63,7 +63,7 @@ npm install --save-dev vite-plugin-themeshift style-dictionary sass
 ```ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { themeShift } from 'vite-plugin-themeshift';
+import { themeShift } from '@themeshift/vite-plugin-themeshift';
 
 export default defineConfig({
   plugins: [react(), themeShift()],
