@@ -59,4 +59,48 @@ describe('registerStyleDictionaryThings', () => {
     expect(output).toContain('--components-button-surface-base: #ccc;');
     expect(output).not.toContain("/* Other */\n  --components-button-surface-base");
   });
+
+  it('emits mixed component namespaces into base and themed blocks', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary);
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    expect(format).toBeTypeOf('function');
+
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'components-button-padding',
+            value: '1rem 2rem 0',
+            attributes: {},
+          },
+          {
+            name: 'components-button-surface-base',
+            value: '#ccc',
+            attributes: { theme: 'light' },
+          },
+          {
+            name: 'components-button-surface-base',
+            value: 'hotpink',
+            attributes: { theme: 'dark' },
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain(':root {\n  /* Components */\n  --components-button-padding: 1rem 2rem 0;');
+    expect(output).toContain(
+      ":root[data-theme='light'] {\n  /* Components */\n  --components-button-surface-base: #ccc;"
+    );
+    expect(output).toContain(
+      ":root[data-theme='dark'] {\n  /* Components */\n  --components-button-surface-base: hotpink;"
+    );
+    expect(output).not.toContain(
+      ":root[data-theme='light'] {\n  /* Components */\n  --components-button-padding: 1rem 2rem 0;"
+    );
+    expect(output).not.toContain(
+      ":root[data-theme='print'] {\n    --components-button-padding: 1rem 2rem 0;"
+    );
+  });
 });

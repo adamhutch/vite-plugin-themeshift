@@ -50,17 +50,7 @@ export function registerStyleDictionaryThings(StyleDictionary: any) {
       const all = dictionary.allTokens ?? [];
       const byName = (a: any, b: any) => a.name.localeCompare(b.name);
 
-      const isThemedNamespace = (name: string) =>
-        name.startsWith('theme-') ||
-        name.startsWith('component-') ||
-        name.startsWith('components-') ||
-        name.startsWith('message-') ||
-        name.startsWith('shadow-');
-
-      const base = all
-        .filter((t: any) => !t.attributes?.theme)
-        .filter((t: any) => !isThemedNamespace(t.name))
-        .sort(byName);
+      const base = all.filter((t: any) => !t.attributes?.theme).sort(byName);
 
       const light = all
         .filter((t: any) => t.attributes?.theme === 'light')
