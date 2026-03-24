@@ -37,13 +37,23 @@ function makeServerMocks() {
   };
 }
 
+async function flushMicrotasks(includeMacrotask = false) {
+  await Promise.resolve();
+  await Promise.resolve();
+  if (includeMacrotask) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
 describe('themeShift', () => {
   beforeEach(() => {
     vi.useRealTimers();
-    sdMocks.buildPlatform.mockClear();
-    sdMocks.extend.mockClear();
-    sdMocks.registerTransform.mockClear();
-    sdMocks.registerFormat.mockClear();
+    sdMocks.buildPlatform.mockReset();
+    sdMocks.extend.mockReset();
+    sdMocks.registerTransform.mockReset();
+    sdMocks.registerFormat.mockReset();
+    sdMocks.buildPlatform.mockImplementation(async () => {});
+    sdMocks.extend.mockImplementation(() => ({ buildPlatform: sdMocks.buildPlatform }));
   });
 
   it('injects Sass helpers into additionalData by default', () => {
@@ -124,14 +134,29 @@ describe('themeShift', () => {
 
   it('builds all default platforms on buildStart', async () => {
     const plugin = themeShift();
+    plugin.config?.({}, { command: 'build', mode: 'test' } as any);
     await plugin.buildStart?.();
 
     const calls = sdMocks.buildPlatform.mock.calls.map((call) => call[0]);
     expect(calls).toEqual(['css', 'scss', 'meta']);
   });
 
+  it('does not crash buildStart in serve mode on transient token load errors', async () => {
+    sdMocks.extend.mockRejectedValue(
+      new Error(
+        'Failed to load or parse JSON or JS Object:\n\nJSON5: invalid end of input at 1:1'
+      )
+    );
+
+    const plugin = themeShift();
+    plugin.config?.({}, { command: 'serve', mode: 'test' } as any);
+
+    await expect(plugin.buildStart?.()).resolves.toBeUndefined();
+  });
+
   it('watches token changes and triggers HMR updates', async () => {
     const plugin = themeShift({ tokensDir: 'tokens', watch: true });
+    plugin.config?.({}, { command: 'serve', mode: 'test' } as any);
     const server = makeServerMocks();
 
     await plugin.configureServer?.(server as any);
@@ -142,7 +167,8 @@ describe('themeShift', () => {
     expect(server.watcher.on).toHaveBeenCalledTimes(3);
 
     const onChange = server.watcher.on.mock.calls[0]?.[1];
-    await onChange?.(process.cwd() + '/tokens/theme.json');
+    onChange?.(process.cwd() + '/tokens/theme.json');
+    await flushMicrotasks(true);
 
     expect(sdMocks.buildPlatform).toHaveBeenCalled();
     expect(server.ws.send).toHaveBeenCalledWith(
@@ -170,5 +196,36 @@ describe('themeShift', () => {
 
     expect(sdMocks.extend).toHaveBeenCalledTimes(2);
     expect(server.config.logger.error).not.toHaveBeenCalled();
+  });
+
+  it('logs watcher build failures instead of surfacing them as crashes', async () => {
+    vi.useFakeTimers();
+
+    sdMocks.extend.mockRejectedValue(
+      new Error(
+        'Failed to load or parse JSON or JS Object:\n\nJSON5: invalid end of input at 1:1'
+      )
+    );
+
+    const plugin = themeShift({ tokensDir: 'tokens', watch: true });
+    plugin.config?.({}, { command: 'serve', mode: 'test' } as any);
+    const server = makeServerMocks();
+
+    const configurePromise = plugin.configureServer?.(server as any);
+    await vi.runAllTimersAsync();
+    await configurePromise;
+    server.config.logger.error.mockClear();
+
+    const onAdd = server.watcher.on.mock.calls.find(
+      (call) => call[0] === 'add'
+    )?.[1];
+
+    onAdd?.(process.cwd() + '/tokens/theme.json');
+    await vi.runAllTimersAsync();
+    await flushMicrotasks();
+
+    expect(server.config.logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('[style-dictionary] build failed:')
+    );
   });
 });

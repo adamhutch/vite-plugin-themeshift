@@ -22,7 +22,7 @@ export type ThemeShiftOptions = {
 };
 
 export function themeShift(options: ThemeShiftOptions = {}): Plugin {
-  const TRANSIENT_BUILD_RETRY_DELAYS_MS = [50, 100, 200];
+  const TRANSIENT_BUILD_RETRY_DELAYS_MS = [50, 100, 200, 400, 800];
   const tokensDir = options.tokensDir ?? 'tokens';
   const watch = options.watch ?? true;
   const injectSassTokenFn = options.injectSassTokenFn ?? true;
@@ -38,6 +38,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
   };
 
   let root = process.cwd();
+  let command: 'build' | 'serve' = 'build';
   let server: ViteDevServer | null = null;
   let cssOutputFile: string | null = null;
 
@@ -180,7 +181,9 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
     name: 'vite-plugin-style-dictionary-native',
     enforce: 'pre',
 
-    config(userConfig): UserConfig {
+    config(userConfig, env): UserConfig {
+      command = env?.command ?? command;
+
       if (!injectSassTokenFn) return {};
 
       const injection = makeSassTokenInjection();
@@ -204,7 +207,15 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
     },
 
     async buildStart() {
-      await buildWithRetries();
+      try {
+        await buildWithRetries();
+      } catch (err) {
+        if (command === 'serve' && isTransientTokenLoadError(err)) {
+          return;
+        }
+
+        throw err;
+      }
     },
 
     async configureServer(_server) {
@@ -235,9 +246,15 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
         }
       };
 
-      server.watcher.on('add', onChange);
-      server.watcher.on('change', onChange);
-      server.watcher.on('unlink', onChange);
+      server.watcher.on('add', (file) => {
+        void onChange(file);
+      });
+      server.watcher.on('change', (file) => {
+        void onChange(file);
+      });
+      server.watcher.on('unlink', (file) => {
+        void onChange(file);
+      });
     },
   };
 }
