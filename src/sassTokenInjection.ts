@@ -1,12 +1,12 @@
 export function makeSassTokenInjection(): string {
   return (
     `
-@use "sass:string";
+@use "sass:string" as _themeShiftString;
 
 @function _sd_to_css_var_name($path) {
   $out: "";
-  @for $i from 1 through string.length($path) {
-    $ch: string.slice($path, $i, $i);
+  @for $i from 1 through _themeShiftString.length($path) {
+    $ch: _themeShiftString.slice($path, $i, $i);
     @if $ch == "." { $out: $out + "-"; }
     @else { $out: $out + $ch; }
   }
@@ -20,14 +20,48 @@ export function makeSassTokenInjection(): string {
   );
 }
 
+function splitLeadingScssDirectives(source: string) {
+  const directivePattern =
+    /^(?<prefix>(?:\s|\/\/[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*)(?<directive>@(?:charset|use|forward)\b[\s\S]*?;)/;
+  let remaining = source;
+  let leading = '';
+
+  while (true) {
+    const match = remaining.match(directivePattern);
+    if (!match?.groups) break;
+
+    leading += match.groups.prefix + match.groups.directive;
+    remaining = remaining.slice(match[0].length);
+  }
+
+  return { leading, remaining };
+}
+
+function mergeScssStrings(existing: string, injection: string) {
+  const existingParts = splitLeadingScssDirectives(existing);
+  const injectionParts = splitLeadingScssDirectives(injection);
+
+  const leading = [existingParts.leading, injectionParts.leading]
+    .filter(Boolean)
+    .map((part) => part.trimEnd())
+    .join('\n');
+
+  return (
+    leading +
+    (leading ? '\n' : '') +
+    injectionParts.remaining +
+    existingParts.remaining
+  );
+}
+
 export function mergeScssAdditionalData(
   existing: unknown,
   injection: string
 ): string | ((source: string, filename: string) => string) {
   if (typeof existing === 'function') {
     return (source: string, filename: string) =>
-      injection + existing(source, filename);
+      mergeScssStrings(existing(source, filename), injection);
   }
-  if (typeof existing === 'string') return injection + existing;
+  if (typeof existing === 'string') return mergeScssStrings(existing, injection);
   return injection;
 }

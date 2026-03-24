@@ -53,6 +53,7 @@ export function registerStyleDictionaryThings(StyleDictionary: any) {
       const isThemedNamespace = (name: string) =>
         name.startsWith('theme-') ||
         name.startsWith('component-') ||
+        name.startsWith('components-') ||
         name.startsWith('message-') ||
         name.startsWith('shadow-');
 
@@ -82,7 +83,8 @@ export function registerStyleDictionaryThings(StyleDictionary: any) {
         { label: 'Theme', match: (n: string) => n.startsWith('theme-') },
         {
           label: 'Components',
-          match: (n: string) => n.startsWith('component-'),
+          match: (n: string) =>
+            n.startsWith('component-') || n.startsWith('components-'),
         },
         { label: 'Messages', match: (n: string) => n.startsWith('message-') },
         { label: 'Shadows', match: (n: string) => n.startsWith('shadow-') },

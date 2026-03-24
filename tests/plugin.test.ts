@@ -1,7 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { themeShift } from '../src/plugin';
-import { makeSassTokenInjection } from '../src/sassTokenInjection';
+import {
+  makeSassTokenInjection,
+  mergeScssAdditionalData,
+} from '../src/sassTokenInjection';
 
 const sdMocks = vi.hoisted(() => {
   const buildPlatform = vi.fn(async () => {});
@@ -54,7 +57,35 @@ describe('themeShift', () => {
       config?.css?.preprocessorOptions?.scss?.additionalData ?? '';
 
     expect(typeof additional).toBe('string');
-    expect(additional.startsWith(injection)).toBe(true);
+    expect(additional).toContain('@use "sass:string" as _themeShiftString;');
+    expect(additional).toContain('@function token($path)');
+    expect(additional).toContain('body {}');
+  });
+
+  it('keeps existing @use rules ahead of injected Sass helpers', () => {
+    const additional = mergeScssAdditionalData(
+      `@use '@/sass/tokens.runtime' as *;\n.button { color: red; }\n`,
+      makeSassTokenInjection()
+    );
+
+    expect(typeof additional).toBe('string');
+    expect(additional).toMatch(
+      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use "sass:string" as _themeShiftString;/
+    );
+    expect(additional).toContain('.button { color: red; }');
+  });
+
+  it('keeps existing functional additionalData @use rules ahead of helpers', () => {
+    const additional = mergeScssAdditionalData(
+      (source: string) =>
+        `@use '@/sass/tokens.runtime' as *;\n${source}\n.button { color: red; }\n`,
+      makeSassTokenInjection()
+    );
+
+    expect(typeof additional).toBe('function');
+    expect(additional('body {}', 'Button.module.scss')).toMatch(
+      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use "sass:string" as _themeShiftString;/
+    );
   });
 
   it('skips Sass injection when injectSassTokenFn is false', () => {
