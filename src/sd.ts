@@ -223,10 +223,13 @@ export type TokenPath = (typeof tokenPaths)[number];
   });
 }
 
-export function makeStyleDictionaryConfig(options: { log?: LogConfig } = {}): Config {
+export function makeStyleDictionaryConfig(options: {
+  log?: LogConfig;
+  source?: string[];
+} = {}): Config {
   return {
     log: options.log,
-    source: ['tokens/**/*.json'],
+    source: options.source ?? ['tokens/**/*.json'],
 
     platforms: {
       css: {

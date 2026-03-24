@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { Plugin, UserConfig, ViteDevServer } from 'vite';
 
@@ -24,6 +25,7 @@ export type ThemeShiftOptions = {
 export function themeShift(options: ThemeShiftOptions = {}): Plugin {
   const TRANSIENT_BUILD_RETRY_DELAYS_MS = [50, 100, 200, 400, 800];
   const tokensDir = options.tokensDir ?? 'tokens';
+  const tokensGlob = options.tokensGlob ?? 'tokens/**/*.json';
   const watch = options.watch ?? true;
   const injectSassTokenFn = options.injectSassTokenFn ?? true;
   const platforms = options.platforms ?? ['css', 'scss', 'meta'];
@@ -69,6 +71,34 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
     );
   }
 
+  async function resolveTokenSources() {
+    const entries = await Array.fromAsync(
+      fs.glob(tokensGlob, { cwd: root, exclude: ['**/node_modules/**'] })
+    );
+    const sources: string[] = [];
+
+    for (const entry of entries) {
+      const source = entry.split(path.sep).join('/');
+      const content = await fs.readFile(path.resolve(root, entry), 'utf8');
+      const trimmed = content.trim();
+
+      if (!trimmed) continue;
+
+      try {
+        JSON.parse(trimmed);
+      } catch {
+        if (command === 'serve') continue;
+        throw new Error(
+          `[style-dictionary] invalid token file: ${source}. Token files must contain valid JSON.`
+        );
+      }
+
+      sources.push(source);
+    }
+
+    return sources;
+  }
+
   async function buildOnce() {
     if (building) return building;
 
@@ -80,7 +110,8 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
       registerStyleDictionaryThings(StyleDictionary);
 
       // build using your config (relative paths resolve from cwd; set cwd to root)
-      const config = makeStyleDictionaryConfig({ log });
+      const source = await resolveTokenSources();
+      const config = makeStyleDictionaryConfig({ log, source });
       setCssOutputFile(config);
 
       await withRootCwd(async () => {

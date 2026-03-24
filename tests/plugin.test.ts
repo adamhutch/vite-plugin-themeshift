@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { themeShift } from '../src/plugin';
@@ -35,14 +38,6 @@ function makeServerMocks() {
     },
     config: { logger: { error: vi.fn() } },
   };
-}
-
-async function flushMicrotasks(includeMacrotask = false) {
-  await Promise.resolve();
-  await Promise.resolve();
-  if (includeMacrotask) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
 }
 
 describe('themeShift', () => {
@@ -154,6 +149,37 @@ describe('themeShift', () => {
     await expect(plugin.buildStart?.()).resolves.toBeUndefined();
   });
 
+  it('ignores empty and invalid token files in serve mode', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'themeshift-'));
+
+    try {
+      await fs.mkdir(path.join(root, 'tokens'));
+      await fs.writeFile(
+        path.join(root, 'tokens', 'theme.valid.json'),
+        '{"theme":{"text":{"base":{"value":"#000"}}}}'
+      );
+      await fs.writeFile(path.join(root, 'tokens', 'theme.empty.json'), '');
+      await fs.writeFile(
+        path.join(root, 'tokens', 'theme.invalid.json'),
+        '{"theme":'
+      );
+
+      const plugin = themeShift();
+      plugin.config?.({}, { command: 'serve', mode: 'test' } as any);
+      plugin.configResolved?.({ root } as any);
+
+      await expect(plugin.buildStart?.()).resolves.toBeUndefined();
+
+      expect(sdMocks.extend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: ['tokens/theme.valid.json'],
+        })
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('watches token changes and triggers HMR updates', async () => {
     const plugin = themeShift({ tokensDir: 'tokens', watch: true });
     plugin.config?.({}, { command: 'serve', mode: 'test' } as any);
@@ -168,7 +194,7 @@ describe('themeShift', () => {
 
     const onChange = server.watcher.on.mock.calls[0]?.[1];
     onChange?.(process.cwd() + '/tokens/theme.json');
-    await flushMicrotasks(true);
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(sdMocks.buildPlatform).toHaveBeenCalled();
     expect(server.ws.send).toHaveBeenCalledWith(
@@ -177,8 +203,6 @@ describe('themeShift', () => {
   });
 
   it('retries transient token parse failures triggered by newly added files', async () => {
-    vi.useFakeTimers();
-
     sdMocks.extend
       .mockRejectedValueOnce(
         new Error(
@@ -190,17 +214,13 @@ describe('themeShift', () => {
     const plugin = themeShift({ tokensDir: 'tokens', watch: true });
     const server = makeServerMocks();
 
-    const configurePromise = plugin.configureServer?.(server as any);
-    await vi.runAllTimersAsync();
-    await configurePromise;
+    await plugin.configureServer?.(server as any);
 
     expect(sdMocks.extend).toHaveBeenCalledTimes(2);
     expect(server.config.logger.error).not.toHaveBeenCalled();
   });
 
   it('logs watcher build failures instead of surfacing them as crashes', async () => {
-    vi.useFakeTimers();
-
     sdMocks.extend.mockRejectedValue(
       new Error(
         'Failed to load or parse JSON or JS Object:\n\nJSON5: invalid end of input at 1:1'
@@ -211,9 +231,7 @@ describe('themeShift', () => {
     plugin.config?.({}, { command: 'serve', mode: 'test' } as any);
     const server = makeServerMocks();
 
-    const configurePromise = plugin.configureServer?.(server as any);
-    await vi.runAllTimersAsync();
-    await configurePromise;
+    await plugin.configureServer?.(server as any);
     server.config.logger.error.mockClear();
 
     const onAdd = server.watcher.on.mock.calls.find(
@@ -221,8 +239,7 @@ describe('themeShift', () => {
     )?.[1];
 
     onAdd?.(process.cwd() + '/tokens/theme.json');
-    await vi.runAllTimersAsync();
-    await flushMicrotasks();
+    await new Promise((resolve) => setTimeout(resolve, 1600));
 
     expect(server.config.logger.error).toHaveBeenCalledWith(
       expect.stringContaining('[style-dictionary] build failed:')
