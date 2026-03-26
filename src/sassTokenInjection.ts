@@ -1,15 +1,25 @@
 import { normalizeCssVarPrefix } from './cssVar';
 
-export function makeSassTokenInjection(cssVarPrefix?: string): string {
-  const prefix = normalizeCssVarPrefix(cssVarPrefix);
-  const prefixLiteral = prefix ? `${JSON.stringify(`${prefix}-`)}` : '""';
+function makeSassTokenHelpers(options: {
+  bakedPrefix?: string;
+  prefixVariableName?: string;
+}) {
+  const { bakedPrefix, prefixVariableName } = options;
+  const prefix = normalizeCssVarPrefix(bakedPrefix);
+  const prefixSource = prefixVariableName
+    ? `$prefix: if(${prefixVariableName} == null or ${prefixVariableName} == "", "", ${prefixVariableName} + "-");`
+    : `$prefix: ${prefix ? JSON.stringify(`${prefix}-`) : '""'};`;
 
   return (
     `
 @use "sass:string" as _themeShiftString;
 
+${prefixVariableName ? `$${prefixVariableName.replace(/^\$/, '')}: null !default;\n` : ''}${
+      prefixSource
+    }
+
 @function _sd_to_css_var_name($path) {
-  $out: ${prefixLiteral};
+  $out: $prefix;
   @for $i from 1 through _themeShiftString.length($path) {
     $ch: _themeShiftString.slice($path, $i, $i);
     @if $ch == "." { $out: $out + "-"; }
@@ -23,6 +33,14 @@ export function makeSassTokenInjection(cssVarPrefix?: string): string {
 }
 `.trim() + '\n'
   );
+}
+
+export function makeSassTokenInjection(cssVarPrefix?: string): string {
+  return makeSassTokenHelpers({ bakedPrefix: cssVarPrefix });
+}
+
+export function makeStandaloneSassTokenModule(): string {
+  return makeSassTokenHelpers({ prefixVariableName: '$var-prefix' });
 }
 
 function splitLeadingScssDirectives(source: string) {

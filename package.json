@@ -16,6 +16,9 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./token": {
+      "sass": "./dist/token.scss"
     }
   },
   "main": "./dist/index.js",
@@ -24,7 +27,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && cp src/token.scss dist/token.scss",
     "dev": "tsup --watch",
     "playground": "npm -C playground run dev",
     "prepublishOnly": "npm run build",

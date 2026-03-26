@@ -8,6 +8,9 @@ pnpm-debug.log*
 dist
 coverage
 .cache
+src/css/tokens.css
+src/sass/_tokens.static.scss
+src/design-tokens/
 playground/src/css/tokens.css
 playground/src/sass/_tokens.static.scss
 playground/src/design-tokens/

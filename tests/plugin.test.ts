@@ -6,6 +6,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { themeShift } from '../src/plugin';
 import {
   makeSassTokenInjection,
+  makeStandaloneSassTokenModule,
   mergeScssAdditionalData,
 } from '../src/sassTokenInjection';
 
@@ -76,8 +77,32 @@ describe('themeShift', () => {
       config?.css?.preprocessorOptions?.scss?.additionalData ?? '';
 
     expect(typeof additional).toBe('function');
-    expect(additional('.button { color: token("components.button.font"); }\n', 'Button.module.scss'))
-      .toContain('$out: "themeshift-";');
+    expect(
+      additional(
+        '.button { color: token("components.button.font"); }\n',
+        'Button.module.scss'
+      )
+    ).toContain('$prefix: "themeshift-";');
+  });
+
+  it('renders a standalone Sass token module with configurable $var-prefix', () => {
+    const moduleSource = makeStandaloneSassTokenModule();
+
+    expect(moduleSource).toContain('$var-prefix: null !default;');
+    expect(moduleSource).toContain(
+      '$prefix: if($var-prefix == null or $var-prefix == "", "", $var-prefix + "-");'
+    );
+    expect(moduleSource).toContain('@function token($path)');
+  });
+
+  it('keeps injected and standalone Sass token helpers aligned', () => {
+    const injection = makeSassTokenInjection('themeshift');
+    const moduleSource = makeStandaloneSassTokenModule();
+
+    expect(injection).toContain('@function _sd_to_css_var_name($path)');
+    expect(moduleSource).toContain('@function _sd_to_css_var_name($path)');
+    expect(injection).toContain('@function token($path)');
+    expect(moduleSource).toContain('@function token($path)');
   });
 
   it('keeps source-level @use rules ahead of injected Sass helpers', () => {
@@ -294,6 +319,16 @@ describe('themeShift', () => {
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
+  });
+
+  it('publishes a Sass token subpath export', async () => {
+    const packageJson = JSON.parse(
+      await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf8')
+    );
+
+    expect(packageJson.exports['./token']).toEqual({
+      sass: './dist/token.scss',
+    });
   });
 
   it('watches token changes and triggers HMR updates', async () => {

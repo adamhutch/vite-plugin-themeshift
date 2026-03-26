@@ -4,7 +4,8 @@ ThemeShift is a Vite plugin that makes using Style Dictionary easy as pie.
 It watches your design tokens, regenerates token outputs automatically, and keeps your app
 up to date without extra build scripts. It also injects a global Sass `token()` function so
 you can reference CSS variables ergonomically in SCSS. It can also extend token JSON published
-by UI packages and layer local app overrides on top.
+by UI packages and layer local app overrides on top. It also ships a standalone Sass module
+for explicit `token()` imports.
 
 ---
 
@@ -23,6 +24,7 @@ logic into a Vite plugin so token changes behave like any other frontend change.
 - 🎨 Outputs CSS variables for multi-mode theming
 - 🧵 Optional Sass output for static tokens
 - ✨ Injects a global Sass `token()` helper
+- 📦 Ships a standalone Sass `token()` module
 - 📦 Extends tokens from installed UI packages (like `@themeshift/ui`)
 - 🏷️ Supports CSS variable prefixes
 - 🔥 Vite HMR for `tokens.css` (fallback to full reload)
@@ -97,6 +99,43 @@ Import the CSS file that ThemeShift generates. For example in `src/main.tsx`:
 ```ts
 import './css/tokens.css';
 ```
+
+5. Ignore generated outputs
+
+In most apps, these files should be treated as build artifacts rather than source:
+
+```gitignore
+src/css/tokens.css
+src/sass/_tokens.static.scss
+src/design-tokens/
+```
+
+6. Optional: import the Sass token helper directly
+
+ThemeShift injects `token()` automatically by default. If you prefer explicit Sass imports,
+you can use the published module instead:
+
+```scss
+@use '@themeshift/vite-plugin-themeshift/token' as themeShift;
+
+.button {
+  color: themeShift.token('theme.text.base');
+}
+```
+
+If your app uses `cssVarPrefix`, configure the Sass module explicitly:
+
+```scss
+@use '@themeshift/vite-plugin-themeshift/token' as themeShift with (
+  $var-prefix: 'themeshift'
+);
+
+.button {
+  color: themeShift.token('components.button.font');
+}
+```
+
+`@use '@themeshift/vite-plugin-themeshift/token' as *;` also works if you want direct `token(...)` calls.
 
 ### Dark/light mode setup
 
@@ -272,6 +311,9 @@ This changes output like:
 The injected Sass helper uses the same naming, so `token('components.button.font')`
 resolves to `var(--themeshift-components-button-font)` when a prefix is configured.
 
+The standalone Sass module uses the same naming contract. Set `$var-prefix` to the same
+value as `cssVarPrefix` when you need prefixed CSS variables from an explicit `@use`.
+
 ### outputPrintTheme
 
 By default, ThemeShift does not emit the `:root[data-theme='print']` block or the matching
@@ -319,6 +361,7 @@ themeShift({
 
 - The `token()` Sass helper maps `token("theme.text.base")` → `var(--theme-text-base)`.
 - With `cssVarPrefix: "themeshift"`, the same token becomes `var(--themeshift-theme-text-base)`.
+- The standalone Sass module exposes the same `token()` API via `@use '@themeshift/vite-plugin-themeshift/token'`.
 - Tokens that include `light`, `dark`, or `print` in their path are treated as mode-specific.
 - Print-theme CSS blocks are only emitted when `outputPrintTheme` is `true`.
 - The CSS output groups common token prefixes for readability.

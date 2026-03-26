@@ -1,0 +1,21 @@
+@use "sass:string" as _themeShiftString;
+
+$var-prefix: null !default;
+$prefix: if($var-prefix == null or $var-prefix == "", "", $var-prefix + "-");
+
+@function _sd_to_css_var_name($path) {
+  $out: $prefix;
+  @for $i from 1 through _themeShiftString.length($path) {
+    $ch: _themeShiftString.slice($path, $i, $i);
+    @if $ch == "." {
+      $out: $out + "-";
+    } @else {
+      $out: $out + $ch;
+    }
+  }
+  @return "--" + $out;
+}
+
+@function token($path) {
+  @return var(#{_sd_to_css_var_name($path)});
+}
