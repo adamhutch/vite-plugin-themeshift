@@ -57,6 +57,87 @@ describe('registerStyleDictionaryThings', () => {
     expect(output).not.toContain('--components-button-font: 600 1rem/1.2 Inter;');
   });
 
+  it('does not emit print theme output by default', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary);
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'theme-surface-base',
+            value: '#fff',
+            attributes: { theme: 'light' },
+          },
+          {
+            name: 'theme-surface-base',
+            value: '#f5f5f5',
+            attributes: { theme: 'print' },
+          },
+        ],
+      },
+    });
+
+    expect(output).not.toContain(":root[data-theme='print']");
+    expect(output).not.toContain('@media print');
+  });
+
+  it('emits print theme output when outputPrintTheme is true', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      outputPrintTheme: true,
+    });
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'theme-surface-base',
+            value: '#fff',
+            attributes: { theme: 'light' },
+          },
+          {
+            name: 'theme-surface-base',
+            value: '#f5f5f5',
+            attributes: { theme: 'print' },
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain(":root[data-theme='print']");
+    expect(output).toContain('@media print');
+  });
+
+  it('groups accessibility tokens into the Accessibility bucket', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary);
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'a11y-focus-ring-color',
+            value: '#005fcc',
+            attributes: {},
+          },
+          {
+            name: 'accessibility-outline-width',
+            value: '2px',
+            attributes: {},
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain('/* Accessibility */');
+    expect(output).toContain('--a11y-focus-ring-color: #005fcc;');
+    expect(output).toContain('--accessibility-outline-width: 2px;');
+  });
+
   it('groups component and components namespaces into the Components bucket', () => {
     const StyleDictionary = makeStyleDictionaryMock();
     registerStyleDictionaryThings(StyleDictionary);

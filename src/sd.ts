@@ -4,12 +4,15 @@ import { pathToCssVarName } from './cssVar';
 
 export function registerStyleDictionaryThings(
   StyleDictionary: any,
-  options: { cssVarPrefix?: string } = {}
+  options: { cssVarPrefix?: string; outputPrintTheme?: boolean } = {}
 ) {
-  const { cssVarPrefix } = options;
+  const { cssVarPrefix, outputPrintTheme = false } = options;
 
   // Prevent double-registration in dev (Vite can re-run plugin code)
-  const registrationKey = cssVarPrefix ?? '__default__';
+  const registrationKey = JSON.stringify({
+    cssVarPrefix: cssVarPrefix ?? null,
+    outputPrintTheme,
+  });
   if (!(StyleDictionary.__hd_registered instanceof Set)) {
     StyleDictionary.__hd_registered = new Set<string>();
   }
@@ -80,6 +83,12 @@ export function registerStyleDictionaryThings(
         { label: 'Raw colors', match: (n: string) => n.startsWith('color-') },
         { label: 'Typography', match: (n: string) => n.startsWith('font-') },
         { label: 'Text styles', match: (n: string) => n.startsWith('text-') },
+        {
+          label: 'Accessibility',
+          match: (n: string) =>
+            n.startsWith('accessibility-') ||
+            n.startsWith('a11y-'),
+        },
 
         { label: 'Theme', match: (n: string) => n.startsWith('theme-') },
         {
@@ -144,7 +153,7 @@ export function registerStyleDictionaryThings(
       if (dark.length)
         out.push(`\n:root[data-theme='dark'] {\n${render(dark)}\n}\n`);
 
-      if (light.length || print.length) {
+      if (outputPrintTheme && (light.length || print.length)) {
         const lightVars = light.length ? renderLines(light) : '';
         const printVars = print.length ? renderLines(print) : '';
 

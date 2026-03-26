@@ -182,6 +182,7 @@ type themeShiftOptions = {
   tokensDir?: string; // default: "tokens"
   extends?: ThemeShiftExtendSource[];
   cssVarPrefix?: string;
+  outputPrintTheme?: boolean; // default: false
   watch?: boolean; // default: true
   injectSassTokenFn?: boolean; // default: true
   platforms?: Array<'css' | 'scss' | 'meta'>; // default: all three
@@ -271,6 +272,19 @@ This changes output like:
 The injected Sass helper uses the same naming, so `token('components.button.font')`
 resolves to `var(--themeshift-components-button-font)` when a prefix is configured.
 
+### outputPrintTheme
+
+By default, ThemeShift does not emit the `:root[data-theme='print']` block or the matching
+`@media print` block.
+
+Set `outputPrintTheme: true` to opt into that output when you have `print` theme tokens:
+
+```ts
+themeShift({
+  outputPrintTheme: true,
+});
+```
+
 ### reloadStrategy
 
 When tokens change, ThemeShift will try to HMR-reload the generated `tokens.css`. If it
@@ -306,6 +320,7 @@ themeShift({
 - The `token()` Sass helper maps `token("theme.text.base")` → `var(--theme-text-base)`.
 - With `cssVarPrefix: "themeshift"`, the same token becomes `var(--themeshift-theme-text-base)`.
 - Tokens that include `light`, `dark`, or `print` in their path are treated as mode-specific.
+- Print-theme CSS blocks are only emitted when `outputPrintTheme` is `true`.
 - The CSS output groups common token prefixes for readability.
 - CSS variable names are intended to be a public API for consuming packages and apps.
 
