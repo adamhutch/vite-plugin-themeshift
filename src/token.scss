@@ -3,12 +3,26 @@
 $var-prefix: null !default;
 $prefix: if($var-prefix == null or $var-prefix == "", "", $var-prefix + "-");
 
+@function _sd_is_uppercase($ch) {
+  @return $ch != _themeShiftString.to-lower-case($ch) and $ch == _themeShiftString.to-upper-case($ch);
+}
+
 @function _sd_to_css_var_name($path) {
   $out: $prefix;
   @for $i from 1 through _themeShiftString.length($path) {
     $ch: _themeShiftString.slice($path, $i, $i);
     @if $ch == "." {
       $out: $out + "-";
+    } @else if $ch == "_" {
+      $out: $out + "-";
+    } @else if _sd_is_uppercase($ch) {
+      @if $i > 1 {
+        $prev: _themeShiftString.slice($path, $i - 1, $i - 1);
+        @if $prev != "." and $prev != "_" and $prev != "-" {
+          $out: $out + "-";
+        }
+      }
+      $out: $out + _themeShiftString.to-lower-case($ch);
     } @else {
       $out: $out + $ch;
     }

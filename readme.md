@@ -362,6 +362,7 @@ themeShift({
 - The `token()` Sass helper maps `token("theme.text.base")` → `var(--theme-text-base)`.
 - With `cssVarPrefix: "themeshift"`, the same token becomes `var(--themeshift-theme-text-base)`.
 - The standalone Sass module exposes the same `token()` API via `@use '@themeshift/vite-plugin-themeshift/token'`.
+- Pass the token's JSON path to `token()`. CamelCase segments like `gapWidth` are normalized to kebab-case CSS vars like `--...-gap-width`.
 - Tokens that include `light`, `dark`, or `print` in their path are treated as mode-specific.
 - Print-theme CSS blocks are only emitted when `outputPrintTheme` is `true`.
 - The CSS output groups common token prefixes for readability.

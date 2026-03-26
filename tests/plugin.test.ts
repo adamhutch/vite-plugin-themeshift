@@ -95,6 +95,20 @@ describe('themeShift', () => {
     expect(moduleSource).toContain('@function token($path)');
   });
 
+  it('normalizes camelCase token paths to kebab-case CSS variable names in injected Sass', () => {
+    const injection = makeSassTokenInjection('themeshift');
+
+    expect(injection).toContain('@function _sd_is_uppercase($ch)');
+    expect(injection).toContain('$out: $out + _themeShiftString.to-lower-case($ch);');
+  });
+
+  it('keeps the standalone Sass token module aligned for camelCase token paths', () => {
+    const moduleSource = makeStandaloneSassTokenModule();
+
+    expect(moduleSource).toContain('@function _sd_is_uppercase($ch)');
+    expect(moduleSource).toContain('$out: $out + _themeShiftString.to-lower-case($ch);');
+  });
+
   it('keeps injected and standalone Sass token helpers aligned', () => {
     const injection = makeSassTokenInjection('themeshift');
     const moduleSource = makeStandaloneSassTokenModule();
