@@ -3,7 +3,8 @@
 ThemeShift is a Vite plugin that makes using Style Dictionary easy as pie.
 It watches your design tokens, regenerates token outputs automatically, and keeps your app
 up to date without extra build scripts. It also injects a global Sass `token()` function so
-you can reference CSS variables ergonomically in SCSS.
+you can reference CSS variables ergonomically in SCSS. It can also extend token JSON published
+by UI packages and layer local app overrides on top.
 
 ---
 
@@ -22,6 +23,8 @@ logic into a Vite plugin so token changes behave like any other frontend change.
 - 🎨 Outputs CSS variables for multi-mode theming
 - 🧵 Optional Sass output for static tokens
 - ✨ Injects a global Sass `token()` helper
+- 📦 Extends tokens from installed UI packages (like `@themeshift/ui`)
+- 🏷️ Supports CSS variable prefixes
 - 🔥 Vite HMR for `tokens.css` (fallback to full reload)
 
 ---
@@ -45,6 +48,9 @@ Style Dictionary JSON files and outputs:
 - `src/css/tokens.css`
 - `src/sass/_tokens.static.scss`
 - `src/design-tokens/token-paths.{json,ts}`
+
+Local tokens continue to work exactly as before. If you do nothing, the plugin only reads
+your app's `tokens/**/*.json`.
 
 ---
 
@@ -163,9 +169,19 @@ npm run playground
 ## Plugin options
 
 ```ts
+type ThemeShiftExtendSource =
+  | string
+  | {
+      package: string;
+      tokensGlob?: string;
+      contractFile?: string;
+    };
+
 type themeShiftOptions = {
   tokensGlob?: string; // default: "tokens/**/*.json" (watch uses tokensDir)
   tokensDir?: string; // default: "tokens"
+  extends?: ThemeShiftExtendSource[];
+  cssVarPrefix?: string;
   watch?: boolean; // default: true
   injectSassTokenFn?: boolean; // default: true
   platforms?: Array<'css' | 'scss' | 'meta'>; // default: all three
@@ -177,6 +193,83 @@ type themeShiftOptions = {
   };
 };
 ```
+
+### extends
+
+Use `extends` to load token JSON from installed packages before local app tokens are loaded.
+Local files always win.
+
+```ts
+themeShift({
+  extends: ['@themeshift/ui'],
+  cssVarPrefix: 'themeshift',
+});
+```
+
+Resolution order is:
+
+1. Extended package tokens
+2. Local `tokens/**/*.json`
+
+If you pass a string entry like `@themeshift/ui`, ThemeShift resolves that package from the
+consuming app root and looks for `theme-contract.json` in the package root by default.
+
+Example contract:
+
+```json
+{
+  "name": "@themeshift/ui",
+  "cssVarPrefix": "themeshift",
+  "tokensGlob": "dist/tokens/**/*.json",
+  "version": "1.0.0"
+}
+```
+
+If you do not want to publish a contract file, use the explicit object form:
+
+```ts
+themeShift({
+  extends: [
+    {
+      package: '@themeshift/ui',
+      tokensGlob: 'dist/tokens/**/*.json',
+    },
+  ],
+});
+```
+
+You can also override the contract filename:
+
+```ts
+themeShift({
+  extends: [
+    {
+      package: '@themeshift/ui',
+      contractFile: 'dist/theme-contract.json',
+    },
+  ],
+});
+```
+
+If an extended package cannot be resolved, the build fails with a clear error.
+
+### cssVarPrefix
+
+Use `cssVarPrefix` to make generated CSS variable names part of a stable public contract:
+
+```ts
+themeShift({
+  cssVarPrefix: 'themeshift',
+});
+```
+
+This changes output like:
+
+- `--components-button-font`
+- to `--themeshift-components-button-font`
+
+The injected Sass helper uses the same naming, so `token('components.button.font')`
+resolves to `var(--themeshift-components-button-font)` when a prefix is configured.
 
 ### reloadStrategy
 
@@ -211,8 +304,10 @@ themeShift({
 ## Token workflow notes
 
 - The `token()` Sass helper maps `token("theme.text.base")` → `var(--theme-text-base)`.
+- With `cssVarPrefix: "themeshift"`, the same token becomes `var(--themeshift-theme-text-base)`.
 - Tokens that include `light`, `dark`, or `print` in their path are treated as mode-specific.
 - The CSS output groups common token prefixes for readability.
+- CSS variable names are intended to be a public API for consuming packages and apps.
 
 ---
 

@@ -1,9 +1,20 @@
 import type { Config, LogConfig } from 'style-dictionary/types';
 
-export function registerStyleDictionaryThings(StyleDictionary: any) {
+import { pathToCssVarName } from './cssVar';
+
+export function registerStyleDictionaryThings(
+  StyleDictionary: any,
+  options: { cssVarPrefix?: string } = {}
+) {
+  const { cssVarPrefix } = options;
+
   // Prevent double-registration in dev (Vite can re-run plugin code)
-  if (StyleDictionary.__hd_registered) return;
-  StyleDictionary.__hd_registered = true;
+  const registrationKey = cssVarPrefix ?? '__default__';
+  if (!(StyleDictionary.__hd_registered instanceof Set)) {
+    StyleDictionary.__hd_registered = new Set<string>();
+  }
+  if (StyleDictionary.__hd_registered.has(registrationKey)) return;
+  StyleDictionary.__hd_registered.add(registrationKey);
 
   /**
    * Attribute transform: tag tokens as themed if their path contains light|dark|print.
@@ -107,13 +118,23 @@ export function registerStyleDictionaryThings(StyleDictionary: any) {
           .map(
             (s) =>
               `  /* ${s.label} */\n` +
-              s.tokens.map((t) => `  --${t.name}: ${getValue(t)};`).join('\n')
+              s.tokens
+                .map(
+                  (t) =>
+                    `  --${pathToCssVarName(t.name, cssVarPrefix)}: ${getValue(t)};`
+                )
+                .join('\n')
           )
           .join('\n\n');
       };
 
       const renderLines = (tokens: any[]) =>
-        tokens.map((t) => `    --${t.name}: ${getValue(t)};`).join('\n');
+        tokens
+          .map(
+            (t) =>
+              `    --${pathToCssVarName(t.name, cssVarPrefix)}: ${getValue(t)};`
+          )
+          .join('\n');
 
       const out: string[] = [];
 

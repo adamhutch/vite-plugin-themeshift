@@ -24,6 +24,39 @@ function makeStyleDictionaryMock() {
 }
 
 describe('registerStyleDictionaryThings', () => {
+  it('emits unprefixed CSS variables by default', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary);
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [{ name: 'components-button-font', value: '600 1rem/1.2 Inter' }],
+      },
+    });
+
+    expect(output).toContain('--components-button-font: 600 1rem/1.2 Inter;');
+  });
+
+  it('emits prefixed CSS variables when cssVarPrefix is set', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      cssVarPrefix: 'themeshift',
+    });
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [{ name: 'components-button-font', value: '600 1rem/1.2 Inter' }],
+      },
+    });
+
+    expect(output).toContain(
+      '--themeshift-components-button-font: 600 1rem/1.2 Inter;'
+    );
+    expect(output).not.toContain('--components-button-font: 600 1rem/1.2 Inter;');
+  });
+
   it('groups component and components namespaces into the Components bucket', () => {
     const StyleDictionary = makeStyleDictionaryMock();
     registerStyleDictionaryThings(StyleDictionary);

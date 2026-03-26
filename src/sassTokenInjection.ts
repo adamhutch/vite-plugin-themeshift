@@ -1,10 +1,15 @@
-export function makeSassTokenInjection(): string {
+import { normalizeCssVarPrefix } from './cssVar';
+
+export function makeSassTokenInjection(cssVarPrefix?: string): string {
+  const prefix = normalizeCssVarPrefix(cssVarPrefix);
+  const prefixLiteral = prefix ? `${JSON.stringify(`${prefix}-`)}` : '""';
+
   return (
     `
 @use "sass:string" as _themeShiftString;
 
 @function _sd_to_css_var_name($path) {
-  $out: "";
+  $out: ${prefixLiteral};
   @for $i from 1 through _themeShiftString.length($path) {
     $ch: _themeShiftString.slice($path, $i, $i);
     @if $ch == "." { $out: $out + "-"; }

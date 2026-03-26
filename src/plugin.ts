@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { Plugin, UserConfig, ViteDevServer } from 'vite';
 
@@ -8,9 +9,19 @@ import {
 } from './sassTokenInjection';
 import { makeStyleDictionaryConfig, registerStyleDictionaryThings } from './sd';
 
+export type ThemeShiftExtendSource =
+  | string
+  | {
+      package: string;
+      tokensGlob?: string;
+      contractFile?: string;
+    };
+
 export type ThemeShiftOptions = {
   tokensGlob?: string; // default: "tokens/**/*.json" (watch uses tokensDir)
   tokensDir?: string; // default: "tokens"
+  extends?: ThemeShiftExtendSource[];
+  cssVarPrefix?: string;
   watch?: boolean; // default: true
   injectSassTokenFn?: boolean; // default: true
   platforms?: Array<'css' | 'scss' | 'meta'>; // default: all three
@@ -26,6 +37,8 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
   const TRANSIENT_BUILD_RETRY_DELAYS_MS = [50, 100, 200, 400, 800];
   const tokensDir = options.tokensDir ?? 'tokens';
   const tokensGlob = options.tokensGlob ?? 'tokens/**/*.json';
+  const extendsSources = options.extends ?? [];
+  const cssVarPrefix = options.cssVarPrefix;
   const watch = options.watch ?? true;
   const injectSassTokenFn = options.injectSassTokenFn ?? true;
   const platforms = options.platforms ?? ['css', 'scss', 'meta'];
@@ -72,12 +85,13 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
   }
 
   async function resolveTokenSources() {
+    const packageSources = await resolveExtendedTokenSources();
     const entries = await Array.fromAsync(
       fs.glob(tokensGlob, { cwd: root, exclude: ['**/node_modules/**'] })
     );
-    const sources: string[] = [];
+    const sources = [...packageSources];
 
-    for (const entry of entries) {
+    for (const entry of entries.sort()) {
       const source = entry.split(path.sep).join('/');
       const content = await fs.readFile(path.resolve(root, entry), 'utf8');
       const trimmed = content.trim();
@@ -99,6 +113,85 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
     return sources;
   }
 
+  async function resolveExtendedTokenSources() {
+    const sources: string[] = [];
+
+    for (const extendSource of extendsSources) {
+      const resolved = await resolvePackageTokenSource(extendSource);
+      sources.push(...resolved);
+    }
+
+    return sources;
+  }
+
+  async function resolvePackageTokenSource(extendSource: ThemeShiftExtendSource) {
+    const descriptor =
+      typeof extendSource === 'string'
+        ? { package: extendSource }
+        : extendSource;
+    const packageName = descriptor.package;
+    const requireFromRoot = createRequire(path.join(root, 'package.json'));
+
+    let packageJsonPath: string;
+    try {
+      packageJsonPath = requireFromRoot.resolve(`${packageName}/package.json`);
+    } catch (error) {
+      throw new Error(
+        `[style-dictionary] could not resolve extended token package "${packageName}" from ${root}.`
+      );
+    }
+
+    const packageRoot = path.dirname(packageJsonPath);
+    const contractFile = descriptor.contractFile ?? 'theme-contract.json';
+    let tokensGlobFromContract: string | undefined;
+
+    if (!descriptor.tokensGlob) {
+      const contractPath = path.resolve(packageRoot, contractFile);
+      try {
+        const contractRaw = await fs.readFile(contractPath, 'utf8');
+        const contract = JSON.parse(contractRaw) as { tokensGlob?: string };
+        tokensGlobFromContract = contract.tokensGlob;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw new Error(
+            `[style-dictionary] failed to read theme contract "${contractFile}" from package "${packageName}".`
+          );
+        }
+      }
+    }
+
+    const packageTokensGlob = descriptor.tokensGlob ?? tokensGlobFromContract;
+
+    if (!packageTokensGlob) {
+      throw new Error(
+        `[style-dictionary] no token source was found for "${packageName}". Provide "tokensGlob" in extends or publish "${contractFile}" with a "tokensGlob" entry.`
+      );
+    }
+
+    const entries = await Array.fromAsync(fs.glob(packageTokensGlob, { cwd: packageRoot }));
+    const sources: string[] = [];
+
+    for (const entry of entries) {
+      const absoluteEntry = path.resolve(packageRoot, entry);
+      const content = await fs.readFile(absoluteEntry, 'utf8');
+      const trimmed = content.trim();
+
+      if (!trimmed) continue;
+
+      try {
+        JSON.parse(trimmed);
+      } catch {
+        throw new Error(
+          `[style-dictionary] invalid token file in package "${packageName}": ${entry}. Token files must contain valid JSON.`
+        );
+      }
+
+      sources.push(absoluteEntry);
+    }
+
+    return sources.sort();
+  }
+
   async function buildOnce() {
     if (building) return building;
 
@@ -107,7 +200,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
       const StyleDictionary = (imported as any).default ?? imported;
 
       // register transforms/formats (your code)
-      registerStyleDictionaryThings(StyleDictionary);
+      registerStyleDictionaryThings(StyleDictionary, { cssVarPrefix });
 
       // build using your config (relative paths resolve from cwd; set cwd to root)
       const source = await resolveTokenSources();
@@ -217,7 +310,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
 
       if (!injectSassTokenFn) return {};
 
-      const injection = makeSassTokenInjection();
+      const injection = makeSassTokenInjection(cssVarPrefix);
       const existing =
         userConfig.css?.preprocessorOptions?.scss?.additionalData;
       const merged = mergeScssAdditionalData(existing, injection);

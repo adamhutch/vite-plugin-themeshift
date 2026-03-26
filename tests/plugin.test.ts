@@ -69,6 +69,17 @@ describe('themeShift', () => {
     );
   });
 
+  it('uses the configured cssVarPrefix in the injected Sass token helper', () => {
+    const plugin = themeShift({ cssVarPrefix: 'themeshift' });
+    const config = plugin.config?.({});
+    const additional =
+      config?.css?.preprocessorOptions?.scss?.additionalData ?? '';
+
+    expect(typeof additional).toBe('function');
+    expect(additional('.button { color: token("components.button.font"); }\n', 'Button.module.scss'))
+      .toContain('$out: "themeshift-";');
+  });
+
   it('keeps source-level @use rules ahead of injected Sass helpers', () => {
     const additional = mergeScssAdditionalData(
       undefined,
@@ -174,6 +185,111 @@ describe('themeShift', () => {
         expect.objectContaining({
           source: ['tokens/theme.valid.json'],
         })
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('loads extended package tokens before local tokens', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'themeshift-'));
+
+    try {
+      const packageRoot = path.join(root, 'node_modules', '@themeshift', 'ui');
+      await fs.mkdir(path.join(root, 'tokens'), { recursive: true });
+      await fs.mkdir(path.join(packageRoot, 'dist', 'tokens'), {
+        recursive: true,
+      });
+      await fs.writeFile(
+        path.join(packageRoot, 'package.json'),
+        '{"name":"@themeshift/ui","version":"1.0.0"}'
+      );
+      await fs.writeFile(
+        path.join(packageRoot, 'theme-contract.json'),
+        '{"name":"@themeshift/ui","tokensGlob":"dist/tokens/**/*.json"}'
+      );
+      await fs.writeFile(
+        path.join(packageRoot, 'dist', 'tokens', 'base.json'),
+        '{"components":{"button":{"font":{"value":"500 1rem/1.2 Inter"}}}}'
+      );
+      await fs.writeFile(
+        path.join(root, 'tokens', 'theme.json'),
+        '{"components":{"button":{"font":{"value":"600 1rem/1.2 Inter"}}}}'
+      );
+
+      const plugin = themeShift({ extends: ['@themeshift/ui'] });
+      plugin.config?.({}, { command: 'build', mode: 'test' } as any);
+      plugin.configResolved?.({ root } as any);
+
+      await plugin.buildStart?.();
+
+      const config = sdMocks.extend.mock.calls.at(-1)?.[0];
+      expect(config?.source).toHaveLength(2);
+      expect(config?.source?.[0]).toMatch(
+        /node_modules\/@themeshift\/ui\/dist\/tokens\/base\.json$/
+      );
+      expect(config?.source?.[1]).toBe('tokens/theme.json');
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('allows explicit package token globs and keeps local overrides last', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'themeshift-'));
+
+    try {
+      const packageRoot = path.join(root, 'node_modules', '@themeshift', 'ui');
+      await fs.mkdir(path.join(root, 'tokens'), { recursive: true });
+      await fs.mkdir(path.join(packageRoot, 'dist', 'tokens'), {
+        recursive: true,
+      });
+      await fs.writeFile(
+        path.join(packageRoot, 'package.json'),
+        '{"name":"@themeshift/ui","version":"1.0.0"}'
+      );
+      await fs.writeFile(
+        path.join(packageRoot, 'dist', 'tokens', 'base.json'),
+        '{"components":{"button":{"font":{"value":"500 1rem/1.2 Inter"}}}}'
+      );
+      await fs.writeFile(
+        path.join(root, 'tokens', 'theme.json'),
+        '{"components":{"button":{"font":{"value":"700 1rem/1.2 Inter"}}}}'
+      );
+
+      const plugin = themeShift({
+        extends: [
+          {
+            package: '@themeshift/ui',
+            tokensGlob: 'dist/tokens/**/*.json',
+          },
+        ],
+      });
+      plugin.config?.({}, { command: 'build', mode: 'test' } as any);
+      plugin.configResolved?.({ root } as any);
+
+      await plugin.buildStart?.();
+
+      const config = sdMocks.extend.mock.calls.at(-1)?.[0];
+      expect(config?.source).toHaveLength(2);
+      expect(config?.source?.[0]).toMatch(
+        /node_modules\/@themeshift\/ui\/dist\/tokens\/base\.json$/
+      );
+      expect(config?.source?.[1]).toBe('tokens/theme.json');
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails with a clear error when an extended package cannot be resolved', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'themeshift-'));
+
+    try {
+      const plugin = themeShift({ extends: ['@themeshift/ui'] });
+      plugin.config?.({}, { command: 'build', mode: 'test' } as any);
+      plugin.configResolved?.({ root } as any);
+
+      await expect(plugin.buildStart?.()).rejects.toThrow(
+        `could not resolve extended token package "@themeshift/ui" from ${root}`
       );
     } finally {
       await fs.rm(root, { recursive: true, force: true });
