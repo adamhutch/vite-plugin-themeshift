@@ -6,17 +6,15 @@ function makeSassTokenHelpers(options: {
 }) {
   const { bakedPrefix, prefixVariableName } = options;
   const prefix = normalizeCssVarPrefix(bakedPrefix);
-  const prefixSource = prefixVariableName
-    ? `$prefix: if(${prefixVariableName} == null or ${prefixVariableName} == "", "", ${prefixVariableName} + "-");`
-    : `$prefix: ${prefix ? JSON.stringify(`${prefix}-`) : '""'};`;
+  const prefixSource = `$prefix: ${prefix ? JSON.stringify(`${prefix}-`) : '""'};`;
 
   return (
     `
 @use "sass:string" as _themeShiftString;
 
-${prefixVariableName ? `$${prefixVariableName.replace(/^\$/, '')}: null !default;\n` : ''}${
-      prefixSource
-    }
+${prefixVariableName ? `$${prefixVariableName.replace(/^\$/, '')}: null !default;\n` : ''}$prefix: "";
+
+${prefixVariableName ? `@if ${prefixVariableName} != null and ${prefixVariableName} != "" {\n  $prefix: ${prefixVariableName} + "-";\n}\n` : prefixSource}
 
 @function _sd_is_uppercase($ch) {
   @return $ch != _themeShiftString.to-lower-case($ch) and $ch == _themeShiftString.to-upper-case($ch);

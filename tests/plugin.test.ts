@@ -89,8 +89,9 @@ describe('themeShift', () => {
     const moduleSource = makeStandaloneSassTokenModule();
 
     expect(moduleSource).toContain('$var-prefix: null !default;');
+    expect(moduleSource).toContain('$prefix: "";');
     expect(moduleSource).toContain(
-      '$prefix: if($var-prefix == null or $var-prefix == "", "", $var-prefix + "-");'
+      '@if $var-prefix != null and $var-prefix != "" {'
     );
     expect(moduleSource).toContain('@function token($path)');
   });
