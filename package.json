@@ -18,9 +18,9 @@
       "import": "./dist/index.js"
     },
     "./token": {
+      "sass": "./dist/token.scss",
       "types": "./dist/token.d.ts",
-      "import": "./dist/token.js",
-      "sass": "./dist/token.scss"
+      "import": "./dist/token.js"
     }
   },
   "main": "./dist/index.js",
