@@ -50,6 +50,7 @@ Style Dictionary JSON files and outputs:
 - `src/css/tokens.css`
 - `src/sass/_tokens.static.scss`
 - `src/design-tokens/token-paths.{json,ts}`
+- `src/design-tokens/token-values.{json,ts}`
 
 Local tokens continue to work exactly as before. If you do nothing, the plugin only reads
 your app's `tokens/**/*.json`.
@@ -136,6 +137,21 @@ If your app uses `cssVarPrefix`, configure the Sass module explicitly:
 ```
 
 `@use '@themeshift/vite-plugin-themeshift/token' as *;` also works if you want direct `token(...)` calls.
+
+7. Optional: use the JavaScript token helpers
+
+ThemeShift also ships a JavaScript runtime API on the same `./token` subpath:
+
+```ts
+import { token, tokenValue } from '@themeshift/vite-plugin-themeshift/token';
+import { tokenValues } from './design-tokens/token-values';
+
+const currentTextColor = token('theme.text.base', { prefix: 'themeshift' });
+const authoredTitleStyle = tokenValue('text.style.title', { values: tokenValues });
+```
+
+`token()` reads the current computed CSS custom property value in the browser.
+`tokenValue()` reads the authored value from the generated token-values manifest.
 
 ### Dark/light mode setup
 
@@ -382,6 +398,7 @@ themeShift({
 - The `token()` Sass helper maps `token("theme.text.base")` → `var(--theme-text-base)`.
 - With `cssVarPrefix: "themeshift"`, the same token becomes `var(--themeshift-theme-text-base)`.
 - The standalone Sass module exposes the same `token()` API via `@use '@themeshift/vite-plugin-themeshift/token'`.
+- The JavaScript `@themeshift/vite-plugin-themeshift/token` export provides `token()` for computed CSS values and `tokenValue()` for authored values from `token-values`.
 - Pass the token's JSON path to `token()`. CamelCase segments like `gapWidth` are normalized to kebab-case CSS vars like `--...-gap-width`.
 - `defaultTheme` duplicates either `light` or `dark` tokens into bare `:root` as a startup fallback.
 - Tokens that include `light`, `dark`, or `print` in their path are treated as mode-specific.

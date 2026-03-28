@@ -140,6 +140,36 @@ describe('registerStyleDictionaryThings', () => {
     );
   });
 
+  it('emits a token values manifest with primitive and object values', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary);
+
+    const format = StyleDictionary.getFormat('token/values-ts');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            path: ['color', 'brand', 'primary'],
+            value: '#005fcc',
+          },
+          {
+            path: ['text', 'style', 'title'],
+            value: {
+              fontFamily: '"Roboto Slab", Georgia, serif',
+              fontSize: '1.25rem',
+              lineHeight: '1.3',
+              fontWeight: '400',
+            },
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain('"color.brand.primary": "#005fcc"');
+    expect(output).toContain('"text.style.title": {');
+    expect(output).toContain('"fontFamily": "\\"Roboto Slab\\", Georgia, serif"');
+  });
+
   it('does not emit print theme output by default', () => {
     const StyleDictionary = makeStyleDictionaryMock();
     registerStyleDictionaryThings(StyleDictionary);

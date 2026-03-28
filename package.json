@@ -18,6 +18,8 @@
       "import": "./dist/index.js"
     },
     "./token": {
+      "types": "./dist/token.d.ts",
+      "import": "./dist/token.js",
       "sass": "./dist/token.scss"
     }
   },

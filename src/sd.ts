@@ -301,6 +301,39 @@ export type TokenPath = (typeof tokenPaths)[number];
 `;
     },
   });
+
+  StyleDictionary.registerFormat({
+    name: 'token/values-json',
+    format: ({ dictionary }: any) => {
+      const values = Object.fromEntries(
+        dictionary.allTokens
+          .map((t: any) => [t.path.join('.'), t.value ?? t.$value ?? null])
+          .sort(([a]: [string, unknown], [b]: [string, unknown]) =>
+            a.localeCompare(b)
+          )
+      );
+
+      return JSON.stringify(values, null, 2);
+    },
+  });
+
+  StyleDictionary.registerFormat({
+    name: 'token/values-ts',
+    format: ({ dictionary }: any) => {
+      const values = Object.fromEntries(
+        dictionary.allTokens
+          .map((t: any) => [t.path.join('.'), t.value ?? t.$value ?? null])
+          .sort(([a]: [string, unknown], [b]: [string, unknown]) =>
+            a.localeCompare(b)
+          )
+      );
+
+      return `/* auto-generated */
+export const tokenValues = ${JSON.stringify(values, null, 2)} as const;
+export type TokenValuePath = keyof typeof tokenValues;
+`;
+    },
+  });
 }
 
 export function makeStyleDictionaryConfig(options: {
@@ -344,6 +377,8 @@ export function makeStyleDictionaryConfig(options: {
         files: [
           { destination: 'token-paths.json', format: 'token/paths-json' },
           { destination: 'token-paths.ts', format: 'token/paths-ts' },
+          { destination: 'token-values.json', format: 'token/values-json' },
+          { destination: 'token-values.ts', format: 'token/values-ts' },
         ],
       },
     },

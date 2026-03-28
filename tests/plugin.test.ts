@@ -355,12 +355,14 @@ describe('themeShift', () => {
     }
   });
 
-  it('publishes a Sass token subpath export', async () => {
+  it('publishes a token subpath export for JS and Sass', async () => {
     const packageJson = JSON.parse(
       await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf8')
     );
 
     expect(packageJson.exports['./token']).toEqual({
+      types: './dist/token.d.ts',
+      import: './dist/token.js',
       sass: './dist/token.scss',
     });
   });
