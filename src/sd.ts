@@ -4,13 +4,18 @@ import { pathToCssVarName } from './cssVar';
 
 export function registerStyleDictionaryThings(
   StyleDictionary: any,
-  options: { cssVarPrefix?: string; outputPrintTheme?: boolean } = {}
+  options: {
+    cssVarPrefix?: string;
+    defaultTheme?: 'light' | 'dark';
+    outputPrintTheme?: boolean;
+  } = {}
 ) {
-  const { cssVarPrefix, outputPrintTheme = false } = options;
+  const { cssVarPrefix, defaultTheme, outputPrintTheme = false } = options;
 
   // Prevent double-registration in dev (Vite can re-run plugin code)
   const registrationKey = JSON.stringify({
     cssVarPrefix: cssVarPrefix ?? null,
+    defaultTheme: defaultTheme ?? null,
     outputPrintTheme,
   });
   if (!(StyleDictionary.__hd_registered instanceof Set)) {
@@ -146,8 +151,13 @@ export function registerStyleDictionaryThings(
           .join('\n');
 
       const out: string[] = [];
+      const rootTokens = [
+        ...base,
+        ...(defaultTheme === 'light' ? light : []),
+        ...(defaultTheme === 'dark' ? dark : []),
+      ];
 
-      if (base.length) out.push(`:root {\n${render(base)}\n}\n`);
+      if (rootTokens.length) out.push(`:root {\n${render(rootTokens)}\n}\n`);
       if (light.length)
         out.push(`\n:root[data-theme='light'] {\n${render(light)}\n}\n`);
       if (dark.length)

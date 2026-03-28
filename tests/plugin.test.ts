@@ -9,6 +9,7 @@ import {
   makeStandaloneSassTokenModule,
   mergeScssAdditionalData,
 } from '../src/sassTokenInjection';
+import * as sd from '../src/sd';
 
 const sdMocks = vi.hoisted(() => {
   const buildPlatform = vi.fn(async () => {});
@@ -50,6 +51,24 @@ describe('themeShift', () => {
     sdMocks.registerFormat.mockReset();
     sdMocks.buildPlatform.mockImplementation(async () => {});
     sdMocks.extend.mockImplementation(() => ({ buildPlatform: sdMocks.buildPlatform }));
+  });
+
+  it('passes defaultTheme through to Style Dictionary registration', async () => {
+    const registerSpy = vi.spyOn(sd, 'registerStyleDictionaryThings');
+    const plugin = themeShift({ defaultTheme: 'dark', cssVarPrefix: 'themeshift' });
+
+    plugin.config?.({}, { command: 'build', mode: 'test' } as any);
+    await plugin.buildStart?.();
+
+    expect(registerSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        defaultTheme: 'dark',
+        cssVarPrefix: 'themeshift',
+      })
+    );
+
+    registerSpy.mockRestore();
   });
 
   it('injects Sass helpers into additionalData by default', () => {

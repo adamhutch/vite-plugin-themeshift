@@ -22,6 +22,7 @@ export type ThemeShiftOptions = {
   tokensDir?: string; // default: "tokens"
   extends?: ThemeShiftExtendSource[];
   cssVarPrefix?: string;
+  defaultTheme?: 'light' | 'dark';
   outputPrintTheme?: boolean;
   watch?: boolean; // default: true
   injectSassTokenFn?: boolean; // default: true
@@ -40,6 +41,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
   const tokensGlob = options.tokensGlob ?? 'tokens/**/*.json';
   const extendsSources = options.extends ?? [];
   const cssVarPrefix = options.cssVarPrefix;
+  const defaultTheme = options.defaultTheme;
   const outputPrintTheme = options.outputPrintTheme ?? false;
   const watch = options.watch ?? true;
   const injectSassTokenFn = options.injectSassTokenFn ?? true;
@@ -204,6 +206,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
       // register transforms/formats (your code)
       registerStyleDictionaryThings(StyleDictionary, {
         cssVarPrefix,
+        defaultTheme,
         outputPrintTheme,
       });
 

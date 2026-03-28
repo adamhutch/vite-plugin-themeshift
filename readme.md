@@ -221,6 +221,7 @@ type themeShiftOptions = {
   tokensDir?: string; // default: "tokens"
   extends?: ThemeShiftExtendSource[];
   cssVarPrefix?: string;
+  defaultTheme?: 'light' | 'dark';
   outputPrintTheme?: boolean; // default: false
   watch?: boolean; // default: true
   injectSassTokenFn?: boolean; // default: true
@@ -314,6 +315,25 @@ resolves to `var(--themeshift-components-button-font)` when a prefix is configur
 The standalone Sass module uses the same naming contract. Set `$var-prefix` to the same
 value as `cssVarPrefix` when you need prefixed CSS variables from an explicit `@use`.
 
+### defaultTheme
+
+Use `defaultTheme` to emit either your `light` or `dark` themed variables into bare `:root`
+as a fallback when the document does not have a `data-theme` attribute.
+
+```ts
+themeShift({
+  defaultTheme: 'light',
+});
+```
+
+This is useful for published component libraries like `@themeshift/ui`, where you want styles
+to work immediately with zero consumer setup.
+
+Theme-specific blocks are still emitted, so apps can override the fallback later with:
+
+- `:root[data-theme='light']`
+- `:root[data-theme='dark']`
+
 ### outputPrintTheme
 
 By default, ThemeShift does not emit the `:root[data-theme='print']` block or the matching
@@ -363,6 +383,7 @@ themeShift({
 - With `cssVarPrefix: "themeshift"`, the same token becomes `var(--themeshift-theme-text-base)`.
 - The standalone Sass module exposes the same `token()` API via `@use '@themeshift/vite-plugin-themeshift/token'`.
 - Pass the token's JSON path to `token()`. CamelCase segments like `gapWidth` are normalized to kebab-case CSS vars like `--...-gap-width`.
+- `defaultTheme` duplicates either `light` or `dark` tokens into bare `:root` as a startup fallback.
 - Tokens that include `light`, `dark`, or `print` in their path are treated as mode-specific.
 - Print-theme CSS blocks are only emitted when `outputPrintTheme` is `true`.
 - The CSS output groups common token prefixes for readability.
