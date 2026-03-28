@@ -2,6 +2,58 @@ import type { Config, LogConfig } from 'style-dictionary/types';
 
 import { pathToCssVarName } from './cssVar';
 
+function serializeTypographyValue(value: Record<string, unknown>) {
+  const fontStyle = typeof value.fontStyle === 'string' ? value.fontStyle : '';
+  const fontVariant =
+    typeof value.fontVariant === 'string' ? value.fontVariant : '';
+  const fontWeight =
+    typeof value.fontWeight === 'string' || typeof value.fontWeight === 'number'
+      ? String(value.fontWeight)
+      : '';
+  const fontSize =
+    typeof value.fontSize === 'string' || typeof value.fontSize === 'number'
+      ? String(value.fontSize)
+      : '';
+  const lineHeight =
+    typeof value.lineHeight === 'string' || typeof value.lineHeight === 'number'
+      ? String(value.lineHeight)
+      : '';
+  const fontFamily =
+    typeof value.fontFamily === 'string' ? value.fontFamily : '';
+
+  const fontShorthand = [
+    fontStyle,
+    fontVariant,
+    fontWeight,
+    fontSize ? `${fontSize}${lineHeight ? `/${lineHeight}` : ''}` : '',
+    fontFamily,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return fontShorthand;
+}
+
+function getTokenValue(token: any) {
+  const value = token.value ?? token.$value ?? '';
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+
+  const tokenType = token.type ?? token.$type;
+  const looksLikeTypography =
+    tokenType === 'typography' ||
+    'fontFamily' in value ||
+    'fontSize' in value ||
+    'lineHeight' in value;
+
+  if (looksLikeTypography) {
+    return serializeTypographyValue(value);
+  }
+
+  return String(value);
+}
+
 export function registerStyleDictionaryThings(
   StyleDictionary: any,
   options: {
@@ -81,8 +133,6 @@ export function registerStyleDictionaryThings(
         .filter((t: any) => t.attributes?.theme === 'print')
         .sort(byName);
 
-      const getValue = (t: any) => t.value ?? t.$value ?? '';
-
       const GROUPS = [
         { label: 'Palette', match: (n: string) => n.startsWith('palette-') },
         { label: 'Raw colors', match: (n: string) => n.startsWith('color-') },
@@ -135,7 +185,7 @@ export function registerStyleDictionaryThings(
               s.tokens
                 .map(
                   (t) =>
-                    `  --${pathToCssVarName(t.name, cssVarPrefix)}: ${getValue(t)};`
+                    `  --${pathToCssVarName(t.name, cssVarPrefix)}: ${getTokenValue(t)};`
                 )
                 .join('\n')
           )
@@ -146,7 +196,7 @@ export function registerStyleDictionaryThings(
         tokens
           .map(
             (t) =>
-              `    --${pathToCssVarName(t.name, cssVarPrefix)}: ${getValue(t)};`
+              `    --${pathToCssVarName(t.name, cssVarPrefix)}: ${getTokenValue(t)};`
           )
           .join('\n');
 
@@ -208,7 +258,7 @@ export function registerStyleDictionaryThings(
       lines.push('');
 
       for (const t of tokens) {
-        lines.push(`${toSassVar(t.name)}: ${t.value ?? t.$value ?? ''};`);
+        lines.push(`${toSassVar(t.name)}: ${getTokenValue(t)};`);
       }
 
       const typography = tokens.filter((t: any) =>
@@ -220,7 +270,7 @@ export function registerStyleDictionaryThings(
         for (const t of typography) {
           const mixinName = t.name.replace(/-/g, '_');
           lines.push(`@mixin ${mixinName} {`);
-          lines.push(`  font: ${t.value ?? t.$value ?? ''};`);
+          lines.push(`  font: ${getTokenValue(t)};`);
           lines.push('}');
         }
       }

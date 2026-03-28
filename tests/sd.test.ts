@@ -57,6 +57,89 @@ describe('registerStyleDictionaryThings', () => {
     expect(output).not.toContain('--components-button-font: 600 1rem/1.2 Inter;');
   });
 
+  it('serializes typography object values into valid CSS variable values', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      cssVarPrefix: 'themeshift',
+    });
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'text-style-title',
+            type: 'typography',
+            value: {
+              fontFamily: '"Roboto Slab", Georgia, serif',
+              fontSize: '1.25rem',
+              lineHeight: '1.3',
+              fontWeight: '400',
+            },
+            attributes: {},
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain(
+      '--themeshift-text-style-title: 400 1.25rem/1.3 "Roboto Slab", Georgia, serif;'
+    );
+    expect(output).not.toContain('[object Object]');
+  });
+
+  it('keeps grouped CSS output valid for primitive and typography tokens together', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      cssVarPrefix: 'themeshift',
+    });
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'components-button-padding',
+            value: '1rem 2rem',
+            attributes: {},
+          },
+          {
+            name: 'text-style-title',
+            type: 'typography',
+            value: {
+              fontFamily: '"Roboto Slab", Georgia, serif',
+              fontSize: '1.25rem',
+              lineHeight: '1.3',
+              fontWeight: '400',
+            },
+            attributes: { theme: 'light' },
+          },
+          {
+            name: 'text-style-title',
+            type: 'typography',
+            value: {
+              fontFamily: '"Roboto Slab", Georgia, serif',
+              fontSize: '1.25rem',
+              lineHeight: '1.3',
+              fontWeight: '500',
+            },
+            attributes: { theme: 'dark' },
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain(
+      ':root {\n  /* Components */\n  --themeshift-components-button-padding: 1rem 2rem;'
+    );
+    expect(output).toContain(
+      `:root[data-theme='light'] {\n  /* Text styles */\n  --themeshift-text-style-title: 400 1.25rem/1.3 "Roboto Slab", Georgia, serif;`
+    );
+    expect(output).toContain(
+      `:root[data-theme='dark'] {\n  /* Text styles */\n  --themeshift-text-style-title: 500 1.25rem/1.3 "Roboto Slab", Georgia, serif;`
+    );
+  });
+
   it('does not emit print theme output by default', () => {
     const StyleDictionary = makeStyleDictionaryMock();
     registerStyleDictionaryThings(StyleDictionary);
