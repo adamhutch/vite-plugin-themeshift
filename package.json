@@ -1,6 +1,6 @@
 {
   "name": "@themeshift/vite-plugin-themeshift",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Vite plugin that makes using Style Dictionary + SASS easy as pie.",
   "license": "MIT",
   "author": "",
