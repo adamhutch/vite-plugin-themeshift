@@ -71,6 +71,32 @@ describe('themeShift', () => {
     registerSpy.mockRestore();
   });
 
+  it('passes platform filters through to Style Dictionary registration', async () => {
+    const registerSpy = vi.spyOn(sd, 'registerStyleDictionaryThings');
+    const scssFilter = vi.fn((token) => !token.attributes?.theme);
+    const plugin = themeShift({
+      filters: {
+        scss: scssFilter,
+        css: { includePrefixes: ['layout-'] },
+      },
+    });
+
+    plugin.config?.({}, { command: 'build', mode: 'test' } as any);
+    await plugin.buildStart?.();
+
+    expect(registerSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        filters: expect.objectContaining({
+          scss: scssFilter,
+          css: { includePrefixes: ['layout-'] },
+        }),
+      })
+    );
+
+    registerSpy.mockRestore();
+  });
+
   it('injects Sass helpers into additionalData by default', () => {
     const plugin = themeShift();
     const config = plugin.config?.({});

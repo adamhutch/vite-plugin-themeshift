@@ -242,6 +242,16 @@ type themeShiftOptions = {
   watch?: boolean; // default: true
   injectSassTokenFn?: boolean; // default: true
   platforms?: Array<'css' | 'scss' | 'meta'>; // default: all three
+  filters?: Partial<
+    Record<
+      'css' | 'scss' | 'meta',
+      | {
+          includePrefixes?: string[];
+          excludePrefixes?: string[];
+        }
+      | ((token: any) => boolean)
+    >
+  >;
   reloadStrategy?: 'hmr' | 'full'; // default: "hmr"
   log?: {
     warnings?: 'warn' | 'error' | 'disabled';
@@ -360,6 +370,47 @@ Set `outputPrintTheme: true` to opt into that output when you have `print` theme
 ```ts
 themeShift({
   outputPrintTheme: true,
+});
+```
+
+### filters
+
+Use `filters` to customize which tokens are included per output platform.
+
+By default, ThemeShift preserves its existing behavior:
+
+- `scss` includes non-themed `radius-*`, `spacing-*`, `font-*`, `text-*`, and `layout-*` tokens
+- `css` includes all tokens
+- `meta` includes all tokens
+
+You can override this with declarative include/exclude rules:
+
+```ts
+themeShift({
+  filters: {
+    scss: {
+      includePrefixes: ['radius-', 'spacing-', 'font-', 'text-', 'layout-'],
+      excludePrefixes: ['theme-', 'components-'],
+    },
+    css: {
+      includePrefixes: [],
+      excludePrefixes: [],
+    },
+    meta: {
+      includePrefixes: [],
+      excludePrefixes: [],
+    },
+  },
+});
+```
+
+Or with a predicate function for advanced cases:
+
+```ts
+themeShift({
+  filters: {
+    scss: (token) => !token.attributes?.theme,
+  },
 });
 ```
 

@@ -170,6 +170,162 @@ describe('registerStyleDictionaryThings', () => {
     expect(output).toContain('"fontFamily": "\\"Roboto Slab\\", Georgia, serif"');
   });
 
+  it('includes layout tokens in static Sass output with predictable variable names', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary);
+
+    const format = StyleDictionary.getFormat('scss/static-tokens');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'layout-breakpoints-mobile',
+            value: '0px',
+            attributes: {},
+          },
+          {
+            name: 'layout-breakpoints-tablet',
+            value: '768px',
+            attributes: {},
+          },
+          {
+            name: 'layout-breakpoints-desktop',
+            value: '1024px',
+            attributes: {},
+          },
+          {
+            name: 'layout-site-max-width',
+            value: '1200px',
+            attributes: {},
+          },
+          {
+            name: 'theme-surface-base',
+            value: '#fff',
+            attributes: {},
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain('$layout_breakpoints_mobile: 0px;');
+    expect(output).toContain('$layout_breakpoints_tablet: 768px;');
+    expect(output).toContain('$layout_breakpoints_desktop: 1024px;');
+    expect(output).toContain('$layout_site_max_width: 1200px;');
+    expect(output).not.toContain('$theme_surface_base: #fff;');
+  });
+
+  it('supports declarative scss include/exclude prefix filters', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      filters: {
+        scss: {
+          includePrefixes: ['layout-', 'theme-'],
+          excludePrefixes: ['theme-'],
+        },
+      },
+    });
+
+    const format = StyleDictionary.getFormat('scss/static-tokens');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          { name: 'layout-breakpoints-tablet', value: '768px', attributes: {} },
+          { name: 'theme-surface-base', value: '#fff', attributes: {} },
+          { name: 'spacing-md', value: '1rem', attributes: {} },
+        ],
+      },
+    });
+
+    expect(output).toContain('$layout_breakpoints_tablet: 768px;');
+    expect(output).not.toContain('$theme_surface_base: #fff;');
+    expect(output).not.toContain('$spacing_md: 1rem;');
+  });
+
+  it('supports predicate scss filters', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      filters: {
+        scss: (token) => token.name.startsWith('layout-'),
+      },
+    });
+
+    const format = StyleDictionary.getFormat('scss/static-tokens');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          { name: 'layout-breakpoints-desktop', value: '1024px', attributes: {} },
+          { name: 'spacing-md', value: '1rem', attributes: {} },
+        ],
+      },
+    });
+
+    expect(output).toContain('$layout_breakpoints_desktop: 1024px;');
+    expect(output).not.toContain('$spacing_md: 1rem;');
+  });
+
+  it('supports css filters without changing variable naming', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      cssVarPrefix: 'themeshift',
+      filters: {
+        css: {
+          includePrefixes: ['layout-'],
+        },
+      },
+    });
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          { name: 'layout-site-max-width', value: '1200px', attributes: {} },
+          { name: 'spacing-md', value: '1rem', attributes: {} },
+        ],
+      },
+    });
+
+    expect(output).toContain('--themeshift-layout-site-max-width: 1200px;');
+    expect(output).not.toContain('--themeshift-spacing-md: 1rem;');
+  });
+
+  it('supports meta filters consistently for paths and values manifests', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      filters: {
+        meta: {
+          includePrefixes: ['layout-'],
+        },
+      },
+    });
+
+    const pathsFormat = StyleDictionary.getFormat('token/paths-ts');
+    const valuesFormat = StyleDictionary.getFormat('token/values-ts');
+    const dictionary = {
+      allTokens: [
+        {
+          name: 'layout-site-max-width',
+          path: ['layout', 'site', 'maxWidth'],
+          value: '1200px',
+          attributes: {},
+        },
+        {
+          name: 'spacing-md',
+          path: ['spacing', 'md'],
+          value: '1rem',
+          attributes: {},
+        },
+      ],
+    };
+
+    const pathsOutput = pathsFormat?.({ dictionary });
+    const valuesOutput = valuesFormat?.({ dictionary });
+
+    expect(pathsOutput).toContain('"layout.site.maxWidth"');
+    expect(pathsOutput).not.toContain('"spacing.md"');
+    expect(valuesOutput).toContain('"layout.site.maxWidth": "1200px"');
+    expect(valuesOutput).not.toContain('"spacing.md": "1rem"');
+  });
+
   it('does not emit print theme output by default', () => {
     const StyleDictionary = makeStyleDictionaryMock();
     registerStyleDictionaryThings(StyleDictionary);

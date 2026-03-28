@@ -17,6 +17,19 @@ export type ThemeShiftExtendSource =
       contractFile?: string;
     };
 
+export type ThemeShiftPlatform = 'css' | 'scss' | 'meta';
+
+export type ThemeShiftTokenFilterRule = {
+  includePrefixes?: string[];
+  excludePrefixes?: string[];
+};
+
+export type ThemeShiftTokenFilterPredicate = (token: any) => boolean;
+
+export type ThemeShiftTokenFilter =
+  | ThemeShiftTokenFilterRule
+  | ThemeShiftTokenFilterPredicate;
+
 export type ThemeShiftOptions = {
   tokensGlob?: string; // default: "tokens/**/*.json" (watch uses tokensDir)
   tokensDir?: string; // default: "tokens"
@@ -27,6 +40,7 @@ export type ThemeShiftOptions = {
   watch?: boolean; // default: true
   injectSassTokenFn?: boolean; // default: true
   platforms?: Array<'css' | 'scss' | 'meta'>; // default: all three
+  filters?: Partial<Record<ThemeShiftPlatform, ThemeShiftTokenFilter>>;
   reloadStrategy?: 'hmr' | 'full'; // default: "hmr"
   log?: {
     warnings?: 'warn' | 'error' | 'disabled';
@@ -46,6 +60,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
   const watch = options.watch ?? true;
   const injectSassTokenFn = options.injectSassTokenFn ?? true;
   const platforms = options.platforms ?? ['css', 'scss', 'meta'];
+  const filters = options.filters;
   const reloadStrategy = options.reloadStrategy ?? 'hmr';
   const log = {
     warnings: 'disabled' as const,
@@ -207,6 +222,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
       registerStyleDictionaryThings(StyleDictionary, {
         cssVarPrefix,
         defaultTheme,
+        filters,
         outputPrintTheme,
       });
 

@@ -1,6 +1,11 @@
 import type { Config, LogConfig } from 'style-dictionary/types';
 
 import { pathToCssVarName } from './cssVar';
+import type {
+  ThemeShiftPlatform,
+  ThemeShiftTokenFilter,
+  ThemeShiftTokenFilterRule,
+} from './plugin';
 
 function serializeTypographyValue(value: Record<string, unknown>) {
   const fontStyle = typeof value.fontStyle === 'string' ? value.fontStyle : '';
@@ -54,20 +59,70 @@ function getTokenValue(token: any) {
   return String(value);
 }
 
+const DEFAULT_SCSS_FILTER_RULE: ThemeShiftTokenFilterRule = {
+  includePrefixes: ['radius-', 'spacing-', 'font-', 'text-', 'layout-'],
+};
+
+function matchesPrefixRule(name: string, rule: ThemeShiftTokenFilterRule) {
+  const includePrefixes = rule.includePrefixes ?? [];
+  const excludePrefixes = rule.excludePrefixes ?? [];
+  const included =
+    includePrefixes.length === 0 ||
+    includePrefixes.some((prefix) => name.startsWith(prefix));
+  const excluded = excludePrefixes.some((prefix) => name.startsWith(prefix));
+
+  return included && !excluded;
+}
+
+function applyPlatformFilter(
+  tokens: any[],
+  platform: ThemeShiftPlatform,
+  filters?: Partial<Record<ThemeShiftPlatform, ThemeShiftTokenFilter>>
+) {
+  const filter = filters?.[platform];
+
+  if (typeof filter === 'function') {
+    return tokens.filter((token) => filter(token));
+  }
+
+  if (filter) {
+    return tokens.filter((token) => matchesPrefixRule(token.name, filter));
+  }
+
+  if (platform === 'scss') {
+    return tokens.filter((token) => {
+      if (token.attributes?.theme) return false;
+      return matchesPrefixRule(token.name, DEFAULT_SCSS_FILTER_RULE);
+    });
+  }
+
+  return tokens;
+}
+
 export function registerStyleDictionaryThings(
   StyleDictionary: any,
   options: {
     cssVarPrefix?: string;
     defaultTheme?: 'light' | 'dark';
+    filters?: Partial<Record<ThemeShiftPlatform, ThemeShiftTokenFilter>>;
     outputPrintTheme?: boolean;
   } = {}
 ) {
-  const { cssVarPrefix, defaultTheme, outputPrintTheme = false } = options;
+  const { cssVarPrefix, defaultTheme, filters, outputPrintTheme = false } =
+    options;
 
   // Prevent double-registration in dev (Vite can re-run plugin code)
   const registrationKey = JSON.stringify({
     cssVarPrefix: cssVarPrefix ?? null,
     defaultTheme: defaultTheme ?? null,
+    filters:
+      filters &&
+      Object.fromEntries(
+        Object.entries(filters).map(([platform, filter]) => [
+          platform,
+          typeof filter === 'function' ? '__fn__' : filter,
+        ])
+      ),
     outputPrintTheme,
   });
   if (!(StyleDictionary.__hd_registered instanceof Set)) {
@@ -120,16 +175,17 @@ export function registerStyleDictionaryThings(
     format: ({ dictionary }: any) => {
       const all = dictionary.allTokens ?? [];
       const byName = (a: any, b: any) => a.name.localeCompare(b.name);
+      const filtered = applyPlatformFilter(all, 'css', filters);
 
-      const base = all.filter((t: any) => !t.attributes?.theme).sort(byName);
+      const base = filtered.filter((t: any) => !t.attributes?.theme).sort(byName);
 
-      const light = all
+      const light = filtered
         .filter((t: any) => t.attributes?.theme === 'light')
         .sort(byName);
-      const dark = all
+      const dark = filtered
         .filter((t: any) => t.attributes?.theme === 'dark')
         .sort(byName);
-      const print = all
+      const print = filtered
         .filter((t: any) => t.attributes?.theme === 'print')
         .sort(byName);
 
@@ -238,16 +294,7 @@ export function registerStyleDictionaryThings(
     format: ({ dictionary }: any) => {
       const all = dictionary.allTokens ?? [];
       const byName = (a: any, b: any) => a.name.localeCompare(b.name);
-
-      const ALLOWED_PREFIXES = ['radius-', 'spacing-', 'font-', 'text-'];
-
-      const isAllowed = (name: string) =>
-        ALLOWED_PREFIXES.some((p) => name.startsWith(p));
-
-      const tokens = all
-        .filter((t: any) => !t.attributes?.theme)
-        .filter((t: any) => isAllowed(t.name))
-        .sort(byName);
+      const tokens = applyPlatformFilter(all, 'scss', filters).sort(byName);
 
       const toSassVar = (cssName: string) => `$${cssName.replace(/-/g, '_')}`;
 
@@ -283,7 +330,11 @@ export function registerStyleDictionaryThings(
   StyleDictionary.registerFormat({
     name: 'token/paths-json',
     format: ({ dictionary }: any) => {
-      const paths = dictionary.allTokens.map((t: any) => t.path.join('.'));
+      const paths = applyPlatformFilter(
+        dictionary.allTokens ?? [],
+        'meta',
+        filters
+      ).map((t: any) => t.path.join('.'));
       paths.sort();
       return JSON.stringify(paths, null, 2);
     },
@@ -292,7 +343,11 @@ export function registerStyleDictionaryThings(
   StyleDictionary.registerFormat({
     name: 'token/paths-ts',
     format: ({ dictionary }: any) => {
-      const paths = dictionary.allTokens
+      const paths = applyPlatformFilter(
+        dictionary.allTokens ?? [],
+        'meta',
+        filters
+      )
         .map((t: any) => t.path.join('.'))
         .sort();
       return `/* auto-generated */
@@ -306,7 +361,7 @@ export type TokenPath = (typeof tokenPaths)[number];
     name: 'token/values-json',
     format: ({ dictionary }: any) => {
       const values = Object.fromEntries(
-        dictionary.allTokens
+        applyPlatformFilter(dictionary.allTokens ?? [], 'meta', filters)
           .map((t: any) => [t.path.join('.'), t.value ?? t.$value ?? null])
           .sort(([a]: [string, unknown], [b]: [string, unknown]) =>
             a.localeCompare(b)
@@ -321,7 +376,7 @@ export type TokenPath = (typeof tokenPaths)[number];
     name: 'token/values-ts',
     format: ({ dictionary }: any) => {
       const values = Object.fromEntries(
-        dictionary.allTokens
+        applyPlatformFilter(dictionary.allTokens ?? [], 'meta', filters)
           .map((t: any) => [t.path.join('.'), t.value ?? t.$value ?? null])
           .sort(([a]: [string, unknown], [b]: [string, unknown]) =>
             a.localeCompare(b)
