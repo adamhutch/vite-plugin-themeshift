@@ -232,11 +232,17 @@ type ThemeShiftExtendSource =
       contractFile?: string;
     };
 
+type ThemeShiftCssGroup = {
+  label: string;
+  match: (name: string) => boolean;
+};
+
 type themeShiftOptions = {
   tokensGlob?: string; // default: "tokens/**/*.json" (watch uses tokensDir)
   tokensDir?: string; // default: "tokens"
   extends?: ThemeShiftExtendSource[];
   cssVarPrefix?: string;
+  groups?: ThemeShiftCssGroup[];
   defaultTheme?: 'light' | 'dark';
   outputPrintTheme?: boolean; // default: false
   watch?: boolean; // default: true
@@ -340,6 +346,48 @@ resolves to `var(--themeshift-components-button-font)` when a prefix is configur
 
 The standalone Sass module uses the same naming contract. Set `$var-prefix` to the same
 value as `cssVarPrefix` when you need prefixed CSS variables from an explicit `@use`.
+
+### groups
+
+Use `groups` to customize comment sections in the generated
+`css/variables-modes-grouped` output:
+
+```ts
+themeShift({
+  cssVarPrefix: 'themeshift',
+  groups: [
+    { label: 'Colors', match: (name) => name.startsWith('color-') },
+    {
+      label: 'Typography',
+      match: (name) =>
+        name.startsWith('font-') || name.startsWith('typography-'),
+    },
+    {
+      label: 'Accessibility',
+      match: (name) =>
+        name.startsWith('accessibility-') || name.startsWith('a11y-'),
+    },
+    { label: 'Theme', match: (name) => name.startsWith('theme-') },
+    {
+      label: 'Components',
+      match: (name) =>
+        name.startsWith('component-') || name.startsWith('components-'),
+    },
+    { label: 'Other', match: (_name) => true },
+  ],
+});
+```
+
+Defaults use the same group list shown above.
+
+`groups` fully replaces the defaults, and match order matters. The first matching
+group wins.
+
+Grouping is always based on the raw token name, not the final CSS variable name.
+That means `cssVarPrefix` does not change how tokens are grouped:
+
+- `groups.match(name)` sees `components-button-text`
+- `cssVarPrefix: "themeshift"` renders `--themeshift-components-button-text`
 
 ### defaultTheme
 
@@ -451,10 +499,11 @@ themeShift({
 - The standalone Sass module exposes the same `token()` API via `@use '@themeshift/vite-plugin-themeshift/token'`.
 - The JavaScript `@themeshift/vite-plugin-themeshift/token` export provides `token()` for computed CSS values and `tokenValue()` for authored values from `token-values`.
 - Pass the token's JSON path to `token()`. CamelCase segments like `gapWidth` are normalized to kebab-case CSS vars like `--...-gap-width`.
+- `groups` matches raw token names; `cssVarPrefix` only changes emitted CSS custom property names.
 - `defaultTheme` duplicates either `light` or `dark` tokens into bare `:root` as a startup fallback.
 - Tokens that include `light`, `dark`, or `print` in their path are treated as mode-specific.
 - Print-theme CSS blocks are only emitted when `outputPrintTheme` is `true`.
-- The CSS output groups common token prefixes for readability.
+- The CSS output groups tokens for readability, and those groups are configurable.
 - CSS variable names are intended to be a public API for consuming packages and apps.
 
 ---

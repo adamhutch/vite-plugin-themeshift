@@ -30,11 +30,17 @@ export type ThemeShiftTokenFilter =
   | ThemeShiftTokenFilterRule
   | ThemeShiftTokenFilterPredicate;
 
+export type ThemeShiftCssGroup = {
+  label: string;
+  match: (name: string) => boolean;
+};
+
 export type ThemeShiftOptions = {
   tokensGlob?: string; // default: "tokens/**/*.json" (watch uses tokensDir)
   tokensDir?: string; // default: "tokens"
   extends?: ThemeShiftExtendSource[];
   cssVarPrefix?: string;
+  groups?: ThemeShiftCssGroup[];
   defaultTheme?: 'light' | 'dark';
   outputPrintTheme?: boolean;
   watch?: boolean; // default: true
@@ -55,6 +61,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
   const tokensGlob = options.tokensGlob ?? 'tokens/**/*.json';
   const extendsSources = options.extends ?? [];
   const cssVarPrefix = options.cssVarPrefix;
+  const groups = options.groups;
   const defaultTheme = options.defaultTheme;
   const outputPrintTheme = options.outputPrintTheme ?? false;
   const watch = options.watch ?? true;
@@ -221,6 +228,7 @@ export function themeShift(options: ThemeShiftOptions = {}): Plugin {
       // register transforms/formats (your code)
       registerStyleDictionaryThings(StyleDictionary, {
         cssVarPrefix,
+        groups,
         defaultTheme,
         filters,
         outputPrintTheme,

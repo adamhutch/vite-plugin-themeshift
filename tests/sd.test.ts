@@ -133,10 +133,10 @@ describe('registerStyleDictionaryThings', () => {
       ':root {\n  /* Components */\n  --themeshift-components-button-padding: 1rem 2rem;'
     );
     expect(output).toContain(
-      `:root[data-theme='light'] {\n  /* Text styles */\n  --themeshift-text-style-title: 400 1.25rem/1.3 "Roboto Slab", Georgia, serif;`
+      `:root[data-theme='light'] {\n  /* Other */\n  --themeshift-text-style-title: 400 1.25rem/1.3 "Roboto Slab", Georgia, serif;`
     );
     expect(output).toContain(
-      `:root[data-theme='dark'] {\n  /* Text styles */\n  --themeshift-text-style-title: 500 1.25rem/1.3 "Roboto Slab", Georgia, serif;`
+      `:root[data-theme='dark'] {\n  /* Other */\n  --themeshift-text-style-title: 500 1.25rem/1.3 "Roboto Slab", Georgia, serif;`
     );
   });
 
@@ -576,6 +576,48 @@ describe('registerStyleDictionaryThings', () => {
     expect(output).toContain('--accessibility-outline-width: 2px;');
   });
 
+  it('groups color tokens into the Colors bucket by default', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary);
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'color-brand-primary',
+            value: '#005fcc',
+            attributes: {},
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain('/* Colors */');
+    expect(output).toContain('--color-brand-primary: #005fcc;');
+  });
+
+  it('groups typography-prefixed tokens into the Typography bucket by default', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary);
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'typography-body-md',
+            value: '400 1rem/1.5 Inter',
+            attributes: {},
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain('/* Typography */');
+    expect(output).toContain('--typography-body-md: 400 1rem/1.5 Inter;');
+  });
+
   it('groups component and components namespaces into the Components bucket', () => {
     const StyleDictionary = makeStyleDictionaryMock();
     registerStyleDictionaryThings(StyleDictionary);
@@ -610,6 +652,88 @@ describe('registerStyleDictionaryThings', () => {
     expect(output).toContain('--component-button-text: #111;');
     expect(output).toContain('--components-button-surface-base: #ccc;');
     expect(output).not.toContain("/* Other */\n  --components-button-surface-base");
+  });
+
+  it('groups unmatched tokens into the Other bucket by default', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary);
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'text-style-title',
+            value: '400 1.25rem/1.3 Inter',
+            attributes: {},
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain('/* Other */');
+    expect(output).toContain('--text-style-title: 400 1.25rem/1.3 Inter;');
+  });
+
+  it('supports custom css groups with first-match-wins ordering', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      groups: [
+        { label: 'Buttons', match: (name) => name.startsWith('components-button-') },
+        { label: 'Components', match: (name) => name.startsWith('components-') },
+        { label: 'Other', match: (_name) => true },
+      ],
+    });
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'components-button-text',
+            value: '#111',
+            attributes: {},
+          },
+          {
+            name: 'components-card-surface',
+            value: '#fff',
+            attributes: {},
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain('/* Buttons */\n  --components-button-text: #111;');
+    expect(output).toContain('/* Components */\n  --components-card-surface: #fff;');
+    expect(output).not.toContain('/* Components */\n  --components-button-text: #111;');
+  });
+
+  it('keeps grouping based on raw token names when cssVarPrefix is set', () => {
+    const StyleDictionary = makeStyleDictionaryMock();
+    registerStyleDictionaryThings(StyleDictionary, {
+      cssVarPrefix: 'themeshift',
+      groups: [
+        { label: 'Components', match: (name) => name.startsWith('components-') },
+        { label: 'Other', match: (_name) => true },
+      ],
+    });
+
+    const format = StyleDictionary.getFormat('css/variables-modes-grouped');
+    const output = format?.({
+      dictionary: {
+        allTokens: [
+          {
+            name: 'components-button-text',
+            value: '#111',
+            attributes: {},
+          },
+        ],
+      },
+    });
+
+    expect(output).toContain('/* Components */');
+    expect(output).toContain('--themeshift-components-button-text: #111;');
+    expect(output).not.toContain('--components-button-text: #111;');
   });
 
   it('emits mixed component namespaces into base and themed blocks', () => {

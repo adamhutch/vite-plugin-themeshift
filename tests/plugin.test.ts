@@ -97,6 +97,27 @@ describe('themeShift', () => {
     registerSpy.mockRestore();
   });
 
+  it('passes css groups through to Style Dictionary registration', async () => {
+    const registerSpy = vi.spyOn(sd, 'registerStyleDictionaryThings');
+    const groups = [
+      { label: 'Layout', match: (name: string) => name.startsWith('layout-') },
+      { label: 'Other', match: (_name: string) => true },
+    ];
+    const plugin = themeShift({ groups });
+
+    plugin.config?.({}, { command: 'build', mode: 'test' } as any);
+    await plugin.buildStart?.();
+
+    expect(registerSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        groups,
+      })
+    );
+
+    registerSpy.mockRestore();
+  });
+
   it('injects Sass helpers into additionalData by default', () => {
     const plugin = themeShift();
     const config = plugin.config?.({});

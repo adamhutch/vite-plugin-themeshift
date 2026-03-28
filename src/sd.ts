@@ -2,6 +2,7 @@ import type { Config, LogConfig } from 'style-dictionary/types';
 
 import { pathToCssVarName } from './cssVar';
 import type {
+  ThemeShiftCssGroup,
   ThemeShiftPlatform,
   ThemeShiftTokenFilter,
   ThemeShiftTokenFilterRule,
@@ -63,6 +64,34 @@ const DEFAULT_SCSS_FILTER_RULE: ThemeShiftTokenFilterRule = {
   includePrefixes: ['radius-', 'spacing-', 'font-', 'text-', 'layout-'],
 };
 
+const DEFAULT_CSS_GROUPS: ThemeShiftCssGroup[] = [
+  { label: 'Colors', match: (n: string) => n.startsWith('color-') },
+  {
+    label: 'Typography',
+    match: (n: string) =>
+      n.startsWith('font-') || n.startsWith('typography-'),
+  },
+  {
+    label: 'Accessibility',
+    match: (n: string) =>
+      n.startsWith('accessibility-') || n.startsWith('a11y-'),
+  },
+  { label: 'Theme', match: (n: string) => n.startsWith('theme-') },
+  {
+    label: 'Components',
+    match: (n: string) =>
+      n.startsWith('component-') || n.startsWith('components-'),
+  },
+  { label: 'Other', match: (_n: string) => true },
+];
+
+function serializeGroups(groups?: ThemeShiftCssGroup[]) {
+  return groups?.map((group) => ({
+    label: group.label,
+    match: group.match.toString(),
+  }));
+}
+
 function matchesPrefixRule(name: string, rule: ThemeShiftTokenFilterRule) {
   const includePrefixes = rule.includePrefixes ?? [];
   const excludePrefixes = rule.excludePrefixes ?? [];
@@ -103,17 +132,25 @@ export function registerStyleDictionaryThings(
   StyleDictionary: any,
   options: {
     cssVarPrefix?: string;
+    groups?: ThemeShiftCssGroup[];
     defaultTheme?: 'light' | 'dark';
     filters?: Partial<Record<ThemeShiftPlatform, ThemeShiftTokenFilter>>;
     outputPrintTheme?: boolean;
   } = {}
 ) {
-  const { cssVarPrefix, defaultTheme, filters, outputPrintTheme = false } =
+  const {
+    cssVarPrefix,
+    groups,
+    defaultTheme,
+    filters,
+    outputPrintTheme = false,
+  } =
     options;
 
   // Prevent double-registration in dev (Vite can re-run plugin code)
   const registrationKey = JSON.stringify({
     cssVarPrefix: cssVarPrefix ?? null,
+    groups: serializeGroups(groups) ?? null,
     defaultTheme: defaultTheme ?? null,
     filters:
       filters &&
@@ -176,6 +213,7 @@ export function registerStyleDictionaryThings(
       const all = dictionary.allTokens ?? [];
       const byName = (a: any, b: any) => a.name.localeCompare(b.name);
       const filtered = applyPlatformFilter(all, 'css', filters);
+      const activeGroups = groups ?? DEFAULT_CSS_GROUPS;
 
       const base = filtered.filter((t: any) => !t.attributes?.theme).sort(byName);
 
@@ -189,35 +227,11 @@ export function registerStyleDictionaryThings(
         .filter((t: any) => t.attributes?.theme === 'print')
         .sort(byName);
 
-      const GROUPS = [
-        { label: 'Palette', match: (n: string) => n.startsWith('palette-') },
-        { label: 'Raw colors', match: (n: string) => n.startsWith('color-') },
-        { label: 'Typography', match: (n: string) => n.startsWith('font-') },
-        { label: 'Text styles', match: (n: string) => n.startsWith('text-') },
-        {
-          label: 'Accessibility',
-          match: (n: string) =>
-            n.startsWith('accessibility-') ||
-            n.startsWith('a11y-'),
-        },
-
-        { label: 'Theme', match: (n: string) => n.startsWith('theme-') },
-        {
-          label: 'Components',
-          match: (n: string) =>
-            n.startsWith('component-') || n.startsWith('components-'),
-        },
-        { label: 'Messages', match: (n: string) => n.startsWith('message-') },
-        { label: 'Shadows', match: (n: string) => n.startsWith('shadow-') },
-
-        { label: 'Other', match: (_n: string) => true },
-      ];
-
       const groupTokens = (tokens: any[]) => {
         const remaining = [...tokens];
         const sections: { label: string; tokens: any[] }[] = [];
 
-        for (const g of GROUPS) {
+        for (const g of activeGroups) {
           const picked = remaining.filter((t) => g.match(t.name));
           if (!picked.length) continue;
 
