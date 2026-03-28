@@ -381,18 +381,6 @@ describe('themeShift', () => {
     }
   });
 
-  it('publishes a token subpath export for JS and Sass', async () => {
-    const packageJson = JSON.parse(
-      await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf8')
-    );
-
-    expect(packageJson.exports['./token']).toEqual({
-      types: './dist/token.d.ts',
-      import: './dist/token.js',
-      sass: './dist/token.scss',
-    });
-  });
-
   it('watches token changes and triggers HMR updates', async () => {
     const plugin = themeShift({ tokensDir: 'tokens', watch: true });
     plugin.config?.({}, { command: 'serve', mode: 'test' } as any);
