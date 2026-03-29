@@ -1,15 +1,15 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { themeShift } from '../src/plugin';
 import {
   makeSassTokenInjection,
-  makeStandaloneSassTokenModule,
   mergeScssAdditionalData,
 } from '../src/sassTokenInjection';
 import * as sd from '../src/sd';
+import * as sass from '../playground/node_modules/sass/sass.node.mjs';
 
 const sdMocks = vi.hoisted(() => {
   const buildPlatform = vi.fn(async () => {});
@@ -42,6 +42,22 @@ function makeServerMocks() {
   };
 }
 
+const tempRoots: string[] = [];
+
+async function compileConsumerScss(source: string) {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'themeshift-sass-consumer-')
+  );
+
+  tempRoots.push(tempRoot);
+  await fs.mkdir(path.join(tempRoot, 'src'), { recursive: true });
+
+  return sass.compileString(source, {
+    url: new URL(`file://${path.join(tempRoot, 'src', 'style.scss')}`),
+    loadPaths: [path.join(process.cwd(), 'src')],
+  }).css;
+}
+
 describe('themeShift', () => {
   beforeEach(() => {
     vi.useRealTimers();
@@ -51,6 +67,14 @@ describe('themeShift', () => {
     sdMocks.registerFormat.mockReset();
     sdMocks.buildPlatform.mockImplementation(async () => {});
     sdMocks.extend.mockImplementation(() => ({ buildPlatform: sdMocks.buildPlatform }));
+  });
+
+  afterEach(async () => {
+    await Promise.all(
+      tempRoots.splice(0).map((root) =>
+        fs.rm(root, { recursive: true, force: true })
+      )
+    );
   });
 
   it('passes defaultTheme through to Style Dictionary registration', async () => {
@@ -132,7 +156,7 @@ describe('themeShift', () => {
         'Button.module.scss'
       )
     ).toMatch(
-      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use "sass:string" as _themeShiftString;/
+      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use "@themeshift\/vite-plugin-themeshift\/token" as \*;/
     );
   });
 
@@ -148,42 +172,70 @@ describe('themeShift', () => {
         '.button { color: token("components.button.font"); }\n',
         'Button.module.scss'
       )
-    ).toContain('$prefix: "themeshift-";');
-  });
-
-  it('renders a standalone Sass token module with configurable $var-prefix', () => {
-    const moduleSource = makeStandaloneSassTokenModule();
-
-    expect(moduleSource).toContain('$var-prefix: null !default;');
-    expect(moduleSource).toContain('$prefix: "";');
-    expect(moduleSource).toContain(
-      '@if $var-prefix != null and $var-prefix != "" {'
+    ).toContain(
+      '@use "@themeshift/vite-plugin-themeshift/token-defaults" as _themeShiftTokenDefaults with ('
     );
-    expect(moduleSource).toContain('@function token($path)');
   });
 
-  it('normalizes camelCase token paths to kebab-case CSS variable names in injected Sass', () => {
-    const injection = makeSassTokenInjection('themeshift');
+  it('renders a standalone Sass token module with an optional prefix argument', async () => {
+    const moduleSource = await fs.readFile(
+      path.join(process.cwd(), 'src', 'token.scss'),
+      'utf8'
+    );
 
-    expect(injection).toContain('@function _sd_is_uppercase($ch)');
-    expect(injection).toContain('$out: $out + _themeShiftString.to-lower-case($ch);');
+    expect(moduleSource).toContain('@use "./token-defaults" as _themeShiftDefaults;');
+    expect(moduleSource).toContain('@function _sd_resolve_css_var_prefix($cssVarPrefix: null)');
+    expect(moduleSource).toContain('@function token($path, $cssVarPrefix: null)');
   });
 
-  it('keeps the standalone Sass token module aligned for camelCase token paths', () => {
-    const moduleSource = makeStandaloneSassTokenModule();
+  it('uses an explicit prefix passed to token()', async () => {
+    const css = await compileConsumerScss(`
+@use 'token' as themeShift;
 
-    expect(moduleSource).toContain('@function _sd_is_uppercase($ch)');
-    expect(moduleSource).toContain('$out: $out + _themeShiftString.to-lower-case($ch);');
+.button {
+  color: themeShift.token('components.button.font', 'themeshift');
+}
+`);
+
+    expect(css).toContain('var(--themeshift-components-button-font)');
   });
 
-  it('keeps injected and standalone Sass token helpers aligned', () => {
-    const injection = makeSassTokenInjection('themeshift');
-    const moduleSource = makeStandaloneSassTokenModule();
+  it('falls back to the injected prefix when token() is called without one', async () => {
+    const css = await compileConsumerScss(`
+${makeSassTokenInjection('theme_shift')
+  .replaceAll('@themeshift/vite-plugin-themeshift/token-defaults', 'token-defaults')
+  .replaceAll('@themeshift/vite-plugin-themeshift/token', 'token')}@use 'token' as themeShift;
 
-    expect(injection).toContain('@function _sd_to_css_var_name($path)');
-    expect(moduleSource).toContain('@function _sd_to_css_var_name($path)');
-    expect(injection).toContain('@function token($path)');
-    expect(moduleSource).toContain('@function token($path)');
+.button {
+  color: themeShift.token('components.button.font');
+}
+`);
+
+    expect(css).toContain('var(--theme-shift-components-button-font)');
+  });
+
+  it('emits an unprefixed CSS variable when no prefix is available', async () => {
+    const css = await compileConsumerScss(`
+@use 'token' as themeShift;
+
+body {
+  color: themeShift.token('theme.text.base');
+}
+`);
+
+    expect(css).toContain('var(--theme-text-base)');
+  });
+
+  it('normalizes camelCase and underscores in token paths', async () => {
+    const css = await compileConsumerScss(`
+@use 'token' as themeShift;
+
+body {
+  gap: themeShift.token('layout.gapWidth_base');
+}
+`);
+
+    expect(css).toContain('var(--layout-gap-width-base)');
   });
 
   it('keeps source-level @use rules ahead of injected Sass helpers', () => {
@@ -199,7 +251,7 @@ describe('themeShift', () => {
         'Button.module.scss'
       )
     ).toMatch(
-      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use "sass:string" as _themeShiftString;/
+      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use "@themeshift\/vite-plugin-themeshift\/token" as \*;/
     );
   });
 
@@ -216,7 +268,7 @@ describe('themeShift', () => {
         'Button.module.scss'
       )
     ).toMatch(
-      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use '@\/sass\/mixins\/button';\n@use "sass:string" as _themeShiftString;/
+      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use '@\/sass\/mixins\/button';\n@use "@themeshift\/vite-plugin-themeshift\/token" as \*;/
     );
   });
 
@@ -234,7 +286,7 @@ describe('themeShift', () => {
         'Button.module.scss'
       )
     ).toMatch(
-      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use '@\/sass\/mixins\/button';\n@use "sass:string" as _themeShiftString;/
+      /^@use '@\/sass\/tokens\.runtime' as \*;\n@use '@\/sass\/mixins\/button';\n@use "@themeshift\/vite-plugin-themeshift\/token" as \*;/
     );
   });
 

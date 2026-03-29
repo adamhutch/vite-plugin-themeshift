@@ -124,15 +124,24 @@ you can use the published module instead:
 }
 ```
 
-If your app uses `cssVarPrefix`, configure the Sass module explicitly:
+If your app uses `cssVarPrefix`, the plugin injects that prefix as the Sass default automatically,
+so the same explicit import still works without module configuration:
 
 ```scss
-@use '@themeshift/vite-plugin-themeshift/token' as themeShift with (
-  $var-prefix: 'themeshift'
-);
+@use '@themeshift/vite-plugin-themeshift/token' as themeShift;
 
 .button {
   color: themeShift.token('components.button.font');
+}
+```
+
+You can also pass a prefix explicitly per call:
+
+```scss
+@use '@themeshift/vite-plugin-themeshift/token' as themeShift;
+
+.button {
+  color: themeShift.token('components.button.font', 'themeshift');
 }
 ```
 
@@ -344,8 +353,8 @@ This changes output like:
 The injected Sass helper uses the same naming, so `token('components.button.font')`
 resolves to `var(--themeshift-components-button-font)` when a prefix is configured.
 
-The standalone Sass module uses the same naming contract. Set `$var-prefix` to the same
-value as `cssVarPrefix` when you need prefixed CSS variables from an explicit `@use`.
+The standalone Sass module uses the same naming contract. It checks the prefix argument first,
+then the plugin-injected default prefix, and finally falls back to an unprefixed CSS variable.
 
 ### groups
 
@@ -497,6 +506,7 @@ themeShift({
 - The `token()` Sass helper maps `token("theme.text.base")` → `var(--theme-text-base)`.
 - With `cssVarPrefix: "themeshift"`, the same token becomes `var(--themeshift-theme-text-base)`.
 - The standalone Sass module exposes the same `token()` API via `@use '@themeshift/vite-plugin-themeshift/token'`.
+- The Sass API is `token($path, $cssVarPrefix: null)`, so explicit imports do not require `with (...)`.
 - The JavaScript `@themeshift/vite-plugin-themeshift/token` export provides `token()` for computed CSS values and `tokenValue()` for authored values from `token-values`.
 - Pass the token's JSON path to `token()`. CamelCase segments like `gapWidth` are normalized to kebab-case CSS vars like `--...-gap-width`.
 - `groups` matches raw token names; `cssVarPrefix` only changes emitted CSS custom property names.

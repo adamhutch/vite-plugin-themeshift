@@ -1,61 +1,12 @@
 import { normalizeCssVarPrefix } from './cssVar';
 
-function makeSassTokenHelpers(options: {
-  bakedPrefix?: string;
-  prefixVariableName?: string;
-}) {
-  const { bakedPrefix, prefixVariableName } = options;
-  const prefix = normalizeCssVarPrefix(bakedPrefix);
-  const prefixSource = `$prefix: ${prefix ? JSON.stringify(`${prefix}-`) : '""'};`;
-
-  return (
-    `
-@use "sass:string" as _themeShiftString;
-
-${prefixVariableName ? `$${prefixVariableName.replace(/^\$/, '')}: null !default;\n` : ''}$prefix: "";
-
-${prefixVariableName ? `@if ${prefixVariableName} != null and ${prefixVariableName} != "" {\n  $prefix: ${prefixVariableName} + "-";\n}\n` : prefixSource}
-
-@function _sd_is_uppercase($ch) {
-  @return $ch != _themeShiftString.to-lower-case($ch) and $ch == _themeShiftString.to-upper-case($ch);
-}
-
-@function _sd_to_css_var_name($path) {
-  $out: $prefix;
-  @for $i from 1 through _themeShiftString.length($path) {
-    $ch: _themeShiftString.slice($path, $i, $i);
-    @if $ch == "." {
-      $out: $out + "-";
-    } @else if $ch == "_" {
-      $out: $out + "-";
-    } @else if _sd_is_uppercase($ch) {
-      @if $i > 1 {
-        $prev: _themeShiftString.slice($path, $i - 1, $i - 1);
-        @if $prev != "." and $prev != "_" and $prev != "-" {
-          $out: $out + "-";
-        }
-      }
-      $out: $out + _themeShiftString.to-lower-case($ch);
-    } @else {
-      $out: $out + $ch;
-    }
-  }
-  @return "--" + $out;
-}
-
-@function token($path) {
-  @return var(#{_sd_to_css_var_name($path)});
-}
-`.trim() + '\n'
-  );
-}
-
 export function makeSassTokenInjection(cssVarPrefix?: string): string {
-  return makeSassTokenHelpers({ bakedPrefix: cssVarPrefix });
-}
+  const prefix = normalizeCssVarPrefix(cssVarPrefix);
+  const defaultsUse = prefix
+    ? `@use "@themeshift/vite-plugin-themeshift/token-defaults" as _themeShiftTokenDefaults with (\n  $theme-shift-default-css-var-prefix: ${JSON.stringify(prefix)}\n);\n`
+    : '';
 
-export function makeStandaloneSassTokenModule(): string {
-  return makeSassTokenHelpers({ prefixVariableName: '$var-prefix' });
+  return `${defaultsUse}@use "@themeshift/vite-plugin-themeshift/token" as *;\n`;
 }
 
 function splitLeadingScssDirectives(source: string) {

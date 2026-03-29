@@ -1,18 +1,79 @@
 @use "sass:string" as _themeShiftString;
+@use "./token-defaults" as _themeShiftDefaults;
 
-$var-prefix: null !default;
-$prefix: "";
+@function _sd_trim_leading_hyphens($value) {
+  @if _themeShiftString.length($value) == 0 or _themeShiftString.slice($value, 1, 1) != "-" {
+    @return $value;
+  }
 
-@if $var-prefix != null and $var-prefix != "" {
-  $prefix: $var-prefix + "-";
+  @return _sd_trim_leading_hyphens(_themeShiftString.slice($value, 2));
+}
+
+@function _sd_trim_trailing_hyphens($value) {
+  $length: _themeShiftString.length($value);
+
+  @if $length == 0 or _themeShiftString.slice($value, $length, $length) != "-" {
+    @return $value;
+  }
+
+  @return _sd_trim_trailing_hyphens(
+    _themeShiftString.slice($value, 1, $length - 1)
+  );
+}
+
+@function _sd_normalize_css_var_prefix($prefix) {
+  @if $prefix == null {
+    @return null;
+  }
+
+  $normalized: "";
+  $length: _themeShiftString.length($prefix);
+
+  @if $length == 0 {
+    @return null;
+  }
+
+  @for $i from 1 through $length {
+    $ch: _themeShiftString.slice($prefix, $i, $i);
+    @if $ch == "_" {
+      $normalized: $normalized + "-";
+    } @else {
+      $normalized: $normalized + $ch;
+    }
+  }
+
+  $normalized: _sd_trim_leading_hyphens($normalized);
+  $normalized: _sd_trim_trailing_hyphens($normalized);
+
+  @if $normalized == "" {
+    @return null;
+  }
+
+  @return $normalized;
+}
+
+@function _sd_resolve_css_var_prefix($cssVarPrefix: null) {
+  @if $cssVarPrefix != null {
+    @return _sd_normalize_css_var_prefix($cssVarPrefix);
+  }
+
+  @return _sd_normalize_css_var_prefix(
+    _themeShiftDefaults.$theme-shift-default-css-var-prefix
+  );
 }
 
 @function _sd_is_uppercase($ch) {
   @return $ch != _themeShiftString.to-lower-case($ch) and $ch == _themeShiftString.to-upper-case($ch);
 }
 
-@function _sd_to_css_var_name($path) {
-  $out: $prefix;
+@function _sd_to_css_var_name($path, $cssVarPrefix: null) {
+  $resolved-prefix: _sd_resolve_css_var_prefix($cssVarPrefix);
+  $out: "";
+
+  @if $resolved-prefix != null {
+    $out: $resolved-prefix + "-";
+  }
+
   @for $i from 1 through _themeShiftString.length($path) {
     $ch: _themeShiftString.slice($path, $i, $i);
     @if $ch == "." {
@@ -34,6 +95,6 @@ $prefix: "";
   @return "--" + $out;
 }
 
-@function token($path) {
-  @return var(#{_sd_to_css_var_name($path)});
+@function token($path, $cssVarPrefix: null) {
+  @return var(#{_sd_to_css_var_name($path, $cssVarPrefix)});
 }

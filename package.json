@@ -21,16 +21,20 @@
       "sass": "./dist/token.scss",
       "types": "./dist/token.d.ts",
       "import": "./dist/token.js"
+    },
+    "./token-defaults": {
+      "sass": "./dist/token-defaults.scss"
     }
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "token.scss"
+    "token.scss",
+    "token-defaults.scss"
   ],
   "scripts": {
-    "build": "tsup && cp src/token.scss dist/token.scss",
+    "build": "tsup && cp src/token.scss dist/token.scss && cp src/token-defaults.scss dist/token-defaults.scss",
     "dev": "tsup --watch",
     "playground": "npm -C playground run dev",
     "prepublishOnly": "npm run build",

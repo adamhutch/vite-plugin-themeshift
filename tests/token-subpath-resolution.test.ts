@@ -32,16 +32,48 @@ describe('token subpath resolution', () => {
       '@themeshift',
       'vite-plugin-themeshift'
     );
+    const tempPackageDist = path.join(packageDir, 'dist');
 
     await fs.mkdir(path.dirname(packageDir), { recursive: true });
     await fs.mkdir(path.join(tempRoot, 'node_modules'), { recursive: true });
     await fs.mkdir(path.join(tempRoot, 'src'), { recursive: true });
-    await fs.symlink(packageRoot, packageDir, 'dir');
+    await fs.mkdir(tempPackageDist, { recursive: true });
     await fs.symlink(
       path.join(packageRoot, 'playground', 'node_modules', 'sass'),
       path.join(tempRoot, 'node_modules', 'sass'),
       'dir'
     );
+    await fs.writeFile(
+      path.join(packageDir, 'package.json'),
+      JSON.stringify(
+        {
+          name: '@themeshift/vite-plugin-themeshift',
+          type: 'module',
+          exports: {
+            './token': {
+              sass: './dist/token.scss',
+              types: './dist/token.d.ts',
+              import: './dist/token.js',
+            },
+            './token-defaults': {
+              sass: './dist/token-defaults.scss',
+            },
+          },
+        },
+        null,
+        2
+      )
+    );
+    await fs.copyFile(
+      path.join(packageRoot, 'src', 'token.scss'),
+      path.join(tempPackageDist, 'token.scss')
+    );
+    await fs.copyFile(
+      path.join(packageRoot, 'src', 'token-defaults.scss'),
+      path.join(tempPackageDist, 'token-defaults.scss')
+    );
+    await fs.writeFile(path.join(tempPackageDist, 'token.js'), 'export {};');
+    await fs.writeFile(path.join(tempPackageDist, 'token.d.ts'), 'export {};');
 
     await fs.writeFile(
       path.join(tempRoot, 'index.html'),
@@ -53,12 +85,10 @@ describe('token subpath resolution', () => {
     );
     await fs.writeFile(
       path.join(tempRoot, 'src', 'style.scss'),
-      `@use '@themeshift/vite-plugin-themeshift/token' as * with (
-  $var-prefix: 'themeshift'
-);
+      `@use '@themeshift/vite-plugin-themeshift/token' as themeShift;
 
 .test {
-  color: token('theme.text.base');
+  color: themeShift.token('theme.text.base', 'themeshift');
 }
 `
     );
@@ -94,8 +124,16 @@ describe('token subpath resolution', () => {
       path.join(process.cwd(), 'token.scss'),
       'utf8'
     );
+    const rootTokenDefaultsScss = await fs.readFile(
+      path.join(process.cwd(), 'token-defaults.scss'),
+      'utf8'
+    );
     const sourceTokenScss = await fs.readFile(
       path.join(process.cwd(), 'src', 'token.scss'),
+      'utf8'
+    );
+    const sourceTokenDefaultsScss = await fs.readFile(
+      path.join(process.cwd(), 'src', 'token-defaults.scss'),
       'utf8'
     );
 
@@ -104,7 +142,12 @@ describe('token subpath resolution', () => {
       types: './dist/token.d.ts',
       import: './dist/token.js',
     });
+    expect(packageJson.exports['./token-defaults']).toEqual({
+      sass: './dist/token-defaults.scss',
+    });
     expect(packageJson.files).toContain('token.scss');
+    expect(packageJson.files).toContain('token-defaults.scss');
     expect(rootTokenScss).toBe(sourceTokenScss);
+    expect(rootTokenDefaultsScss).toBe(sourceTokenDefaultsScss);
   });
 });
